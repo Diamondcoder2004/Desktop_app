@@ -1,4 +1,5 @@
 import flet as ft
+from flet import icons
 import pyperclip
 from typing import List
 from src.models.database import Database, Snippet
@@ -56,7 +57,7 @@ class MainView(ft.Control):
         card = ft.Container(
             content=ft.Column([
                 ft.Row([
-                    ft.Icon(ft.icons.CODE, color=ft.colors.BLUE_400),
+                    ft.Icon(icons.CODE, color=ft.colors.BLUE_400),
                     ft.Text(snippet.title, weight="bold", size=16, expand=True, no_wrap=True),
                     ft.Container(
                         content=ft.Text(snippet.language.upper(), size=10, color="white"),
@@ -85,17 +86,17 @@ class MainView(ft.Control):
                 # Action buttons
                 ft.Row([
                     ft.IconButton(
-                        icon=ft.icons.EDIT,
+                        icon=icons.EDIT,
                         tooltip="Редактировать",
                         on_click=lambda e, s=snippet: self._edit_snippet(s)
                     ),
                     ft.IconButton(
-                        icon=ft.icons.COPY,
+                        icon=icons.COPY,
                         tooltip="Копировать код",
                         on_click=lambda e, s=snippet: self._copy_snippet_code(s)
                     ),
                     ft.IconButton(
-                        icon=ft.icons.DELETE_OUTLINE,
+                        icon=icons.DELETE_OUTLINE,
                         icon_color="red",
                         tooltip="Удалить",
                         on_click=lambda e, id=snippet.id: self._delete_snippet(id)
@@ -194,18 +195,18 @@ class MainView(ft.Control):
         """Build the main UI"""
         self.search_field = ft.TextField(
             hint_text="Поиск по названию или тегам...",
-            prefix_icon=ft.icons.SEARCH,
+            prefix_icon=icons.SEARCH,
             on_change=lambda e: self.load_snippets(e.control.value),
             expand=True
         )
         
         header = ft.Row([
-            ft.Icon(ft.icons.CODE, size=30, color="amber"),
+            ft.Icon(icons.CODE, size=30, color="amber"),
             ft.Text("CodeSnippet Hub", size=24, weight="bold"),
             ft.VerticalDivider(width=20),
             self.search_field,
             ft.FloatingActionButton(
-                icon=ft.icons.ADD, 
+                icon=icons.ADD, 
                 text="Добавить", 
                 on_click=self._add_snippet
             )
