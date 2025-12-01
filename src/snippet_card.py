@@ -1,4 +1,5 @@
 import flet as ft
+from flet import icons
 from typing import Callable, Optional
 
 
@@ -45,7 +46,7 @@ class SnippetCard(ft.Container):
                 # Header with title and language tag
                 ft.Row(
                     controls=[
-                        ft.Icon(ft.icons.CODE, color=ft.colors.BLUE_400),
+                        ft.Icon(icons.CODE, color=ft.colors.BLUE_400),
                         ft.Text(
                             self.title, 
                             weight="bold", 
@@ -88,17 +89,17 @@ class SnippetCard(ft.Container):
                 ft.Row(
                     controls=[
                         ft.IconButton(
-                            icon=ft.icons.EDIT,
+                            icon=icons.EDIT,
                             tooltip="Редактировать",
                             on_click=lambda e: self._handle_edit()
                         ) if self.on_edit else ft.Container(),
                         ft.IconButton(
-                            icon=ft.icons.COPY,
+                            icon=icons.COPY,
                             tooltip="Копировать код",
                             on_click=lambda e: self._handle_copy()
                         ),
                         ft.IconButton(
-                            icon=ft.icons.DELETE_OUTLINE,
+                            icon=icons.DELETE_OUTLINE,
                             icon_color="red",
                             tooltip="Удалить",
                             on_click=lambda e: self._handle_delete()
