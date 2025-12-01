@@ -1,222 +1,147 @@
 import flet as ft
-from flet import icons
+from src.models.database import Database
+from src.snippet_card import SnippetCard
+from src.dialogs import AddSnippetDialog, EditSnippetDialog
 import pyperclip
-from typing import List
-from src.models.database import Database, Snippet
-from src.ui.components import SnippetEditor
 
 
-class MainView(ft.Control):
-    """Main application view"""
-    
+class MainView(ft.Column):
+    """Main view of the application."""
+
     def __init__(self, db: Database):
         super().__init__()
         self.db = db
-        self.snippets_grid = ft.GridView(
-            expand=True,
-            runs_count=5,
-            max_extent=350,
-            child_aspect_ratio=1.0,
-            spacing=10,
-            run_spacing=10,
+        self.expand = True
+
+        # Search field
+        self.search_field = ft.TextField(
+            label="Поиск по названию или языку",
+            prefix_icon=ft.icons.SEARCH,
+            on_change=self._handle_search,
+            expand=True
         )
-        self.search_field = None
-        self.edit_dialog = None
 
-    def load_snippets(self, search_query: str = ""):
-        """Load and display snippets from database"""
-        self.snippets_grid.controls.clear()
-        snippets = self.db.get_snippets(search_query)
+        # Snippets grid
+        self.snippets_grid = ft.GridView(
+            expand=1,
+            runs_count=2,
+            max_extent=500,
+            child_aspect_ratio=1.5,
+            spacing=20,
+            run_spacing=20,
+        )
 
-        if not snippets:
-            self.snippets_grid.controls.append(
-                ft.Text("Сниппетов пока нет. Добавьте первый!", size=16, color=ft.colors.GREY_500)
+        # Build the UI
+        self._build_ui()
+
+        # Load snippets
+        self._load_snippets()
+
+    def _build_ui(self):
+        """Build the user interface."""
+        self.controls = [
+            ft.Row(
+                controls=[
+                    self.search_field,
+                    ft.ElevatedButton(
+                        "Добавить сниппет",
+                        icon=ft.icons.ADD,
+                        on_click=self._handle_add_snippet
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+            ),
+            ft.Divider(),
+            ft.Container(
+                content=self.snippets_grid,
+                expand=True
             )
-        else:
-            for snippet in snippets:
-                self.snippets_grid.controls.append(self._create_snippet_card(snippet))
-        
+        ]
+
+    def _load_snippets(self, search_query: str = ""):
+        """Load snippets from database."""
+        self.snippets_grid.controls.clear()
+
+        snippets = self.db.get_snippets(search_query)
+        for snippet in snippets:
+            snippet_id, title, language, code = snippet
+            card = SnippetCard(
+                snippet_id=snippet_id,
+                title=title,
+                language=language,
+                code=code,
+                on_copy=self._handle_copy,
+                on_delete=self._handle_delete,
+                on_edit=self._handle_edit
+            )
+            self.snippets_grid.controls.append(card)
+
         self.update()
 
-    def _create_snippet_card(self, snippet: Snippet):
-        """Create a card for a single snippet"""
-        # Build content markdown from cells
-        content_parts = []
-        for cell in snippet.cells:
-            if cell['type'] == 'code':
-                lang = cell.get('language', 'text')
-                content_parts.append(f"```{lang}\n{cell['content']}\n```")
-            elif cell['type'] == 'text':
-                content_parts.append(cell['content'])
-            elif cell['type'] == 'image':
-                content_parts.append(f"![Image]({cell['content']})")
-        
-        full_content = "\n".join(content_parts)
-        
-        # Create the card
-        card = ft.Container(
-            content=ft.Column([
-                ft.Row([
-                    ft.Icon(icons.CODE, color=ft.colors.BLUE_400),
-                    ft.Text(snippet.title, weight="bold", size=16, expand=True, no_wrap=True),
-                    ft.Container(
-                        content=ft.Text(snippet.language.upper(), size=10, color="white"),
-                        bgcolor=ft.colors.BLUE_GREY_700,
-                        padding=5,
-                        border_radius=5
-                    )
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                
-                ft.Divider(),
-                
-                # Content area with scrolling
-                ft.Container(
-                    content=ft.Markdown(
-                        full_content,
-                        extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                        code_theme="atom-one-dark",
-                        selectable=True,
-                    ),
-                    height=150,
-                    alignment=ft.alignment.top_left,
-                ),
+    def _handle_search(self, e):
+        """Handle search field changes."""
+        self._load_snippets(e.control.value)
 
-                ft.Divider(),
+    def _handle_add_snippet(self, e):
+        """Handle add snippet button click."""
 
-                # Action buttons
-                ft.Row([
-                    ft.IconButton(
-                        icon=icons.EDIT,
-                        tooltip="Редактировать",
-                        on_click=lambda e, s=snippet: self._edit_snippet(s)
-                    ),
-                    ft.IconButton(
-                        icon=icons.COPY,
-                        tooltip="Копировать код",
-                        on_click=lambda e, s=snippet: self._copy_snippet_code(s)
-                    ),
-                    ft.IconButton(
-                        icon=icons.DELETE_OUTLINE,
-                        icon_color="red",
-                        tooltip="Удалить",
-                        on_click=lambda e, id=snippet.id: self._delete_snippet(id)
-                    )
-                ], alignment=ft.MainAxisAlignment.END)
-            ]),
-            bgcolor=ft.colors.SURFACE_VARIANT,
-            padding=15,
-            border_radius=10,
-            animate_scale=ft.animation.Animation(300, ft.AnimationCurve.BOUNCE_OUT)
-        )
-        
-        return card
+        def on_submit(title: str, language: str, code: str):
+            self.db.add_snippet(title, language, code)
+            dialog.close(self.page)
+            self._load_snippets()
 
-    def _add_snippet(self, e):
-        """Open dialog to add a new snippet"""
-        snippet = Snippet(id=None, title="", language="python", cells=[])
-        self._open_edit_dialog(snippet, is_new=True)
+        def on_cancel():
+            dialog.close(self.page)
 
-    def _edit_snippet(self, snippet: Snippet):
-        """Open dialog to edit an existing snippet"""
-        self._open_edit_dialog(snippet, is_new=False)
+        dialog = AddSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
+        dialog.open(self.page)
 
-    def _open_edit_dialog(self, snippet: Snippet, is_new: bool):
-        """Open the snippet editor dialog"""
-        def save_snippet(updated_snippet: Snippet):
-            if is_new:
-                self.db.add_snippet(updated_snippet)
-            else:
-                self.db.update_snippet(updated_snippet)
-            self.edit_dialog.open = False
-            self.load_snippets(self.search_field.value)
-            self.page.update()
-
-        def cancel_edit():
-            self.edit_dialog.open = False
-            self.page.update()
-
-        self.edit_dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Редактирование сниппета"),
-            content=SnippetEditor(snippet=snippet, on_save=save_snippet, on_cancel=cancel_edit),
-            actions=[],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        
-        self.page.dialog = self.edit_dialog
-        self.edit_dialog.open = True
-        self.page.update()
-
-    def _copy_snippet_code(self, snippet: Snippet):
-        """Copy all code cells from the snippet to clipboard"""
-        code_parts = []
-        for cell in snippet.cells:
-            if cell['type'] == 'code':
-                code_parts.append(cell['content'])
-        
-        if code_parts:
-            full_code = "\n\n".join(code_parts)
-            pyperclip.copy(full_code)
-            self.page.snack_bar = ft.SnackBar(ft.Text("Код скопирован в буфер!"))
-        else:
-            self.page.snack_bar = ft.SnackBar(ft.Text("В сниппете нет кода для копирования"))
-        
+    def _handle_copy(self, code: str):
+        """Handle copy button click."""
+        pyperclip.copy(code)
+        self.page.snack_bar = ft.SnackBar(ft.Text("Код скопирован в буфер обмена!"))
         self.page.snack_bar.open = True
         self.page.update()
 
-    def _delete_snippet(self, snippet_id: int):
-        """Delete a snippet after confirmation"""
-        def confirm_delete(e):
+    def _handle_delete(self, snippet_id: int):
+        """Handle delete button click."""
+
+        def on_confirm():
             self.db.delete_snippet(snippet_id)
-            delete_dialog.open = False
-            self.load_snippets(self.search_field.value)
+            dialog.open = False
+            self.page.dialog = None
+            self.page.update()
+            self._load_snippets(self.search_field.value)
+
+        def on_cancel():
+            dialog.open = False
+            self.page.dialog = None
             self.page.update()
 
-        def cancel_delete(e):
-            delete_dialog.open = False
-            self.page.update()
-
-        delete_dialog = ft.AlertDialog(
+        dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Подтверждение удаления"),
-            content=ft.Text("Вы уверены, что хотите удалить этот сниппет?"),
+            title=ft.Text("Удалить сниппет?"),
+            content=ft.Text("Вы уверены, что хотите удалить этот сниппет? Это действие нельзя отменить."),
             actions=[
-                ft.TextButton("Отмена", on_click=cancel_delete),
-                ft.TextButton("Удалить", on_click=confirm_delete, style=ft.ButtonStyle(color="red")),
+                ft.TextButton("Отмена", on_click=lambda e: on_cancel()),
+                ft.TextButton("Удалить", on_click=lambda e: on_confirm(), style=ft.ButtonStyle(color="red")),
             ],
-            actions_alignment=ft.MainAxisAlignment.END,
         )
-        
-        self.page.dialog = delete_dialog
-        delete_dialog.open = True
+
+        self.page.dialog = dialog
+        dialog.open = True
         self.page.update()
 
-    def build(self):
-        """Build the main UI"""
-        self.search_field = ft.TextField(
-            hint_text="Поиск по названию или тегам...",
-            prefix_icon=icons.SEARCH,
-            on_change=lambda e: self.load_snippets(e.control.value),
-            expand=True
-        )
-        
-        header = ft.Row([
-            ft.Icon(icons.CODE, size=30, color="amber"),
-            ft.Text("CodeSnippet Hub", size=24, weight="bold"),
-            ft.VerticalDivider(width=20),
-            self.search_field,
-            ft.FloatingActionButton(
-                icon=icons.ADD, 
-                text="Добавить", 
-                on_click=self._add_snippet
-            )
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    def _handle_edit(self, snippet_id: int, title: str, language: str, code: str):
+        """Handle edit button click."""
 
-        # Load initial snippets
-        self.load_snippets()
+        def on_submit(s_id: int, new_title: str, new_language: str, new_code: str):
+            self.db.update_snippet(s_id, new_title, new_language, new_code)
+            dialog.close(self.page)
+            self._load_snippets(self.search_field.value)
 
-        return ft.Column([
-            header,
-            ft.Divider(),
-            self.snippets_grid
-        ])
+        def on_cancel():
+            dialog.close(self.page)
+
+        dialog = EditSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
+        dialog.open(self.page, snippet_id, title, language, code)
