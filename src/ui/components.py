@@ -1,5 +1,4 @@
 import flet as ft
-from flet import icons
 from typing import List, Dict, Any, Callable
 from src.models.database import Snippet
 
@@ -75,7 +74,7 @@ class CellEditor(ft.Control):
         
         # Delete button
         delete_btn = ft.IconButton(
-            icon=icons.DELETE,
+            icon=ft.icons.DELETE,
             tooltip="Удалить ячейку",
             on_click=self._on_delete_click
         )
@@ -115,7 +114,7 @@ class CellEditor(ft.Control):
             self.content_field,
             ft.Container(width=10),
             ft.IconButton(
-                icon=icons.DELETE,
+                icon=ft.icons.DELETE,
                 tooltip="Удалить ячейку",
                 on_click=self._on_delete_click
             )
@@ -191,7 +190,7 @@ class SnippetEditor(ft.Control):
         # Add cell button
         add_cell_btn = ft.ElevatedButton(
             "Добавить ячейку",
-            icon=icons.ADD,
+            icon=ft.icons.ADD,
             on_click=self._add_cell
         )
         
@@ -264,4 +263,4 @@ class SnippetEditor(ft.Control):
 
     def _add_cell_btn(self):
         """Create add cell button with proper binding"""
-        return ft.ElevatedButton("Добавить ячейку", icon=icons.ADD, on_click=self._add_cell)
+        return ft.ElevatedButton("Добавить ячейку", icon=ft.icons.ADD, on_click=self._add_cell)
