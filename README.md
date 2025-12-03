@@ -34,19 +34,25 @@ CodeSnippet Hub - это настольное приложение для хра
    pip install uv
    ```
 
-2. Клонируйте или скачайте этот репозиторий
-
-3. Перейдите в директорию проекта:
+2. Создайте чистое виртуальное окружение и установите зависимости:
    ```bash
-   cd codesnippet-hub
+   # Создание нового проекта с чистым окружением
+   uv init
+   # Или если вы уже в директории проекта:
+   uv venv  # создаст виртуальное окружение
+   source .venv/bin/activate  # на Linux/Mac
+   # или
+   .venv\Scripts\activate  # на Windows
    ```
 
-4. Установите зависимости:
+3. Установите зависимости:
    ```bash
+   uv pip install flet pyyaml pyperclip
+   # или если у вас есть pyproject.toml:
    uv sync
    ```
 
-5. Запустите приложение:
+4. Запустите приложение как настольное (desktop):
    ```bash
    uv run python src/main.py
    ```
