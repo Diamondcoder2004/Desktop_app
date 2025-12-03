@@ -109,8 +109,8 @@ def main(page: ft.Page):
     # Page setup
     page.title = "CodeSnippet Hub - Multi-cell"
     page.theme_mode = ft.ThemeMode.DARK
-    page.window_width = 1200
-    page.window_height = 800
+    page.window.width = 1200
+    page.window.height = 800
     page.padding = 20
 
     print("=== ПРИЛОЖЕНИЕ ЗАПУЩЕНО ===")
@@ -191,14 +191,16 @@ def main(page: ft.Page):
             snippet_id = db.add_snippet("Тест напрямую", "python", test_cells, "test")
             print(f"✓ Сниппет добавлен напрямую, ID: {snippet_id}")
             # Покажем уведомление
-            page.snack_bar = ft.SnackBar(ft.Text("Тестовый сниппет добавлен напрямую!"))
-            page.snack_bar.open = True
+            snack_bar = ft.SnackBar(ft.Text("Тестовый сниппет добавлен напрямую!"))
+            page.overlay.append(snack_bar)
+            snack_bar.open = True
             load_snippets(search_field.value)
             page.update()
         except Exception as ex:
             print(f"✗ Ошибка при прямом добавлении: {ex}")
-            page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
-            page.snack_bar.open = True
+            snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
+            page.overlay.append(snack_bar)
+            snack_bar.open = True
             page.update()
 
     def handle_add_snippet(e):
@@ -226,8 +228,9 @@ def main(page: ft.Page):
 
                 # Показываем уведомление
                 print("DEBUG: Showing success notification...")
-                page.snack_bar = ft.SnackBar(ft.Text(f"Сниппет '{title}' добавлен!"))
-                page.snack_bar.open = True
+                snack_bar = ft.SnackBar(ft.Text(f"Сниппет '{title}' добавлен!"))
+                page.overlay.append(snack_bar)
+                snack_bar.open = True
                 page.update()
                 print("DEBUG: Add snippet operation completed successfully")
 
@@ -235,8 +238,9 @@ def main(page: ft.Page):
                 print(f"DEBUG: Error in on_submit: {ex}")
                 import traceback
                 traceback.print_exc()
-                page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
-                page.snack_bar.open = True
+                snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
+                page.overlay.append(snack_bar)
+                snack_bar.open = True
                 page.update()
 
         def on_cancel():
@@ -255,8 +259,9 @@ def main(page: ft.Page):
         try:
             pyperclip.copy(yaml_content)
             print("DEBUG: Content copied to clipboard successfully")
-            page.snack_bar = ft.SnackBar(ft.Text("YAML содержимое скопировано в буфер!"))
-            page.snack_bar.open = True
+            snack_bar = ft.SnackBar(ft.Text("YAML содержимое скопировано в буфер!"))
+            page.overlay.append(snack_bar)
+            snack_bar.open = True
             page.update()
             print("DEBUG: Copy operation completed successfully")
         except Exception as e:
