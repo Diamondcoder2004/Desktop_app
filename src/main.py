@@ -1,13 +1,95 @@
+# main.py
 import flet as ft
 from src.database import Database
 from src.snippet_card import SnippetCard
 from src.dialogs import AddSnippetDialog, EditSnippetDialog
 import pyperclip
+import yaml
+
+
+def initialize_demo_data(db: Database):
+    """Initialize the database with demo multi-cell snippets"""
+    # Check if database is empty
+    if not db.get_snippets():
+        print("Initializing demo multi-cell data...")
+
+        # Python Data Science snippet with multiple cells
+        python_ds_cells = [
+            {
+                "type": "text",
+                "content": "### Основные библиотеки для Data Science на Python\n\n- **pandas** - работа с табличными данными\n- **numpy** - числовые вычисления\n- **scikit-learn** - машинное обучение\n- **pytorch** - глубокое обучение"
+            },
+            {
+                "type": "code",
+                "language": "python",
+                "content": """import pandas as pd
+import numpy as np
+
+# Создание DataFrame
+data = {
+    'Имя': ['Анна', 'Борис', 'Клара'],
+    'Возраст': [25, 30, 35],
+    'Город': ['Москва', 'Санкт-Петербург', 'Казань']
+}
+
+df = pd.DataFrame(data)
+print(df)"""
+            },
+            {
+                "type": "code",
+                "language": "python",
+                "content": """# Пример работы с numpy
+arr = np.array([[1, 2, 3], [4, 5, 6]])
+print("Матрица 2x3:")
+print(arr)
+print(f"Сумма: {arr.sum()}")
+print(f"Среднее: {arr.mean()}")"""
+            }
+        ]
+        db.add_snippet("Python: Data Science", "python", python_ds_cells, "python, datascience, pandas")
+
+        # Docker snippet with YAML
+        docker_cells = [
+            {
+                "type": "text",
+                "content": "### Docker основные команды\n\nУправление контейнерами и образами"
+            },
+            {
+                "type": "code",
+                "language": "bash",
+                "content": """# Основные команды
+docker ps              # Список запущенных контейнеров
+docker images          # Список образов
+docker build -t myapp . # Сборка образа
+docker run -d -p 80:80 nginx # Запуск контейнера"""
+            },
+            {
+                "type": "code",
+                "language": "yaml",
+                "content": """# docker-compose.yml
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./html:/usr/share/nginx/html
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_PASSWORD: example"""
+            }
+        ]
+        db.add_snippet("Docker: Команды и Compose", "dockerfile", docker_cells, "docker, devops, container")
+
+        print("Demo multi-cell data initialized!")
 
 
 def main(page: ft.Page):
     # Page setup
-    page.title = "CodeSnippet Hub"
+    page.title = "CodeSnippet Hub - Multi-cell"
     page.theme_mode = ft.ThemeMode.DARK
     page.window_width = 1200
     page.window_height = 800
@@ -16,10 +98,13 @@ def main(page: ft.Page):
     # Initialize database
     db = Database()
 
+    # Initialize demo data
+    initialize_demo_data(db)
+
     # Search field
     search_field = ft.TextField(
-        label="Поиск по названию или языку",
-        prefix_icon=ft.icons.SEARCH,
+        label="Поиск по названию, языку или тегам",
+        prefix_icon="search",
         expand=True
     )
 
@@ -28,7 +113,7 @@ def main(page: ft.Page):
         expand=1,
         runs_count=2,
         max_extent=500,
-        child_aspect_ratio=1.5,
+        child_aspect_ratio=1.2,
         spacing=20,
         run_spacing=20,
     )
@@ -40,12 +125,13 @@ def main(page: ft.Page):
 
         snippets = db.get_snippets(search_query)
         for snippet in snippets:
-            snippet_id, title, language, code = snippet
+            snippet_id, title, language, cells, tags = snippet
+
             card = SnippetCard(
                 snippet_id=snippet_id,
                 title=title,
                 language=language,
-                code=code,
+                cells=cells,
                 on_copy=handle_copy,
                 on_delete=handle_delete,
                 on_edit=handle_edit
@@ -61,8 +147,8 @@ def main(page: ft.Page):
     def handle_add_snippet(e):
         """Handle add snippet button click."""
 
-        def on_submit(title: str, language: str, code: str):
-            db.add_snippet(title, language, code)
+        def on_submit(title: str, language: str, cells: list):
+            db.add_snippet(title, language, cells, "")
             dialog.close(page)
             load_snippets(search_field.value)
 
@@ -72,10 +158,10 @@ def main(page: ft.Page):
         dialog = AddSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
         dialog.open(page)
 
-    def handle_copy(code: str):
+    def handle_copy(yaml_content: str):
         """Handle copy button click."""
-        pyperclip.copy(code)
-        page.snack_bar = ft.SnackBar(ft.Text("Код скопирован в буфер обмена!"))
+        pyperclip.copy(yaml_content)
+        page.snack_bar = ft.SnackBar(ft.Text("YAML содержимое скопировано в буфер!"))
         page.snack_bar.open = True
         page.update()
 
@@ -100,7 +186,7 @@ def main(page: ft.Page):
             content=ft.Text("Вы уверены, что хотите удалить этот сниппет? Это действие нельзя отменить."),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda e: on_cancel()),
-                ft.TextButton("Удалить", on_click=lambda e: on_confirm(), style=ft.ButtonStyle(color="red")),
+                ft.TextButton("Удалить", on_click=lambda e: on_confirm()),
             ],
         )
 
@@ -108,11 +194,11 @@ def main(page: ft.Page):
         dialog.open = True
         page.update()
 
-    def handle_edit(snippet_id: int, title: str, language: str, code: str):
+    def handle_edit(snippet_id: int, title: str, language: str, cells: list):
         """Handle edit button click."""
 
-        def on_submit(s_id: int, new_title: str, new_language: str, new_code: str):
-            db.update_snippet(s_id, new_title, new_language, new_code)
+        def on_submit(s_id: int, new_title: str, new_language: str, new_cells: list):
+            db.update_snippet(s_id, new_title, new_language, new_cells, "")
             dialog.close(page)
             load_snippets(search_field.value)
 
@@ -120,7 +206,7 @@ def main(page: ft.Page):
             dialog.close(page)
 
         dialog = EditSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        dialog.open(page, snippet_id, title, language, code)
+        dialog.open(page, snippet_id, title, language, cells)
 
     # Connect search field
     search_field.on_change = handle_search
@@ -134,7 +220,7 @@ def main(page: ft.Page):
                         search_field,
                         ft.ElevatedButton(
                             "Добавить сниппет",
-                            icon=ft.icons.ADD,
+                            icon="add",
                             on_click=handle_add_snippet
                         )
                     ],

@@ -180,6 +180,7 @@ source = { editable = "." }
 dependencies = [
     { name = "flet", version = "0.25.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "flet", version = "0.28.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "flet-core" },
     { name = "pyperclip" },
     { name = "pyyaml" },
 ]
@@ -200,6 +201,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "flet", specifier = ">=0.24.1" },
+    { name = "flet-core", specifier = ">=0.24.1" },
     { name = "pyperclip", specifier = ">=1.8.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -294,6 +296,18 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2f/d0/9ba4ee34972e9e0cf54b1f7d17c695491632421f81301993f2aec8d12105/flet-0.28.3-py3-none-any.whl", hash = "sha256:649bfc4af7933956ecf44963df6c0d997bff9ceeaf89d3c86d96803840cab83e", size = 463000, upload-time = "2025-05-20T19:44:58.651Z" },
+]
+
+[[package]]
+name = "flet-core"
+version = "0.24.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "repath" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b5/cf/7b5a5a4e59814415270bda0b3c45e7c8be5e31037197a9cac3aa3e2af14a/flet_core-0.24.1.tar.gz", hash = "sha256:1137109aec43b78a911f460a56e0e4581b4c411ba53e5c68fe785502e7e89498", size = 288332, upload-time = "2024-09-03T20:46:35.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/fd/17c690b9d8a437797f6bcec813e423711bfbacabab1f6a4aa28aed303fd1/flet_core-0.24.1-py3-none-any.whl", hash = "sha256:0c729a6a5f914b54ce90d727594d896b975ad1ef749c7076b6775ad4684ea4ed", size = 412157, upload-time = "2024-09-03T20:46:03.44Z" },
 ]
 
 [[package]]
