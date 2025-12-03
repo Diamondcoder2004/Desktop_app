@@ -79,9 +79,13 @@ class AddSnippetDialog:
             ],
         )
 
+    # В dialogs.py, обнови метод _handle_submit в AddSnippetDialog
     def _handle_submit(self, e):
         """Handle submit button click."""
+        print(f"DEBUG: Отправка формы - title: {self.title_field.value}, code: {self.code_field.value}")  # Отладка
+
         if not self.title_field.value or not self.code_field.value:
+            print("DEBUG: Ошибка - не заполнены обязательные поля")  # Отладка
             return
 
         # Create a cell based on selected type
@@ -99,6 +103,7 @@ class AddSnippetDialog:
             }
 
         cells = [cell]
+        print(f"DEBUG: Вызов on_submit с cells: {cells}")  # Отладка
         self.on_submit(self.title_field.value, self.lang_field.value or "python", cells)
 
     def _handle_cancel(self, e):

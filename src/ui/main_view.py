@@ -1,7 +1,7 @@
 import flet as ft
 from src.models.database import Database
-from src.snippet_card import SnippetCard
-from src.dialogs import AddSnippetDialog, EditSnippetDialog
+from src.ui.snippet_card import SnippetCard
+from src.ui.dialogs import AddSnippetDialog, EditSnippetDialog
 import pyperclip
 
 
