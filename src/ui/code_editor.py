@@ -55,7 +55,7 @@ class CodeEditor:
         """Создание UI компонента"""
         # Кнопки переключения режима
         self.toggle_button = ft.IconButton(
-            icon=ft.icons.CODE,
+            icon=ft.Icons.CODE_OUTLINED,
             tooltip="Режим редактирования",
             on_click=self._toggle_view_mode
         )
@@ -89,13 +89,13 @@ class CodeEditor:
             # Переключаемся в режим просмотра
             self.code_view.value = self.text_field.value
             self.editor_container.content = self.code_view
-            self.toggle_button.icon = ft.icons.EDIT
+            self.toggle_button.icon = ft.Icons.EDIT_OUTLINED
             self.toggle_button.tooltip = "Режим редактирования"
             self.view_mode = "preview"
         else:
             # Переключаемся в режим редактирования
             self.editor_container.content = self.text_field
-            self.toggle_button.icon = ft.icons.CODE
+            self.toggle_button.icon = ft.Icons.CODE_OUTLINED
             self.toggle_button.tooltip = "Режим просмотра"
             self.view_mode = "edit"
         
@@ -132,7 +132,7 @@ class MultiCellEditor:
         # Кнопка добавления новой ячейки
         self.add_cell_button = ft.ElevatedButton(
             "Добавить ячейку",
-            icon=ft.icons.ADD,
+            icon=ft.Icons.ADD_OUTLINED,
             on_click=self._add_cell
         )
         
@@ -205,7 +205,7 @@ class MultiCellEditor:
         
         # Кнопка удаления ячейки
         delete_button = ft.IconButton(
-            icon=ft.icons.DELETE,
+            icon=ft.Icons.DELETE_OUTLINE,
             tooltip="Удалить ячейку",
             on_click=lambda e: self._remove_cell(index),
             icon_color=ft.colors.RED
