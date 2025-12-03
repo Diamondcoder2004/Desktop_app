@@ -6,16 +6,10 @@ import os
 # Добавляем текущую директорию в путь
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from models.database import Database
-    from ui.snippet_card import SnippetCard
-    from ui.dialogs import AddSnippetDialog, EditSnippetDialog
-except ImportError as e:
-    print(f"Import error: {e}")
-    # Fallback
-    from database import Database
-    from snippet_card import SnippetCard
-    from dialogs import AddSnippetDialog, EditSnippetDialog
+from models.database import Database
+from ui.snippet_card import SnippetCard
+from ui.dialogs import AddSnippetDialog, EditSnippetDialog
+
 
 import pyperclip
 
@@ -210,8 +204,6 @@ def main(page: ft.Page):
         def on_submit(title: str, language: str, cells: list):
             print(f"DEBUG: on_submit called - title: {title}, language: {language}")
             print(f"DEBUG: Number of cells: {len(cells)}")
-            for i, cell in enumerate(cells):
-                print(f"DEBUG: Cell {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} chars")
 
             try:
                 print("DEBUG: Adding snippet to database...")
@@ -270,48 +262,43 @@ def main(page: ft.Page):
             traceback.print_exc()
 
     def handle_delete(snippet_id: int):
-        """Handle delete button click."""
-        print(f"DEBUG: handle_delete called for snippet_id: {snippet_id}")
+        """Handle delete confirmation."""
+        print(f"DEBUG: Confirming deletion of snippet {snippet_id}")
 
-        def on_confirm():
-            print(f"DEBUG: Confirming deletion of snippet {snippet_id}")
-            try:
-                db.delete_snippet(snippet_id)
-                print(f"DEBUG: Snippet {snippet_id} deleted from database")
-                
-                dialog.open = False
-                page.overlay.remove(dialog)
-                page.update()
-                print("DEBUG: Dialog closed, page updated")
-                
-                load_snippets(search_field.value)
-                print(f"DEBUG: Snippets reloaded after deletion")
-            except Exception as e:
-                print(f"DEBUG: Error deleting snippet: {e}")
-                import traceback
-                traceback.print_exc()
+        def on_confirm(e):
+            print(f"DEBUG: Deleting snippet {snippet_id}...")
+            db.delete_snippet(snippet_id)
+            print(f"DEBUG: Snippet {snippet_id} deleted from database")
 
-        def on_cancel():
-            print(f"DEBUG: Deletion cancelled for snippet {snippet_id}")
-            dialog.open = False
-            page.dialog = None
+            # Закрываем диалог
+            confirm_dialog.open = False
+            page.overlay.remove(confirm_dialog)
             page.update()
 
-        print(f"DEBUG: Creating confirmation dialog for snippet {snippet_id}")
-        dialog = ft.AlertDialog(
+            # Перезагружаем список
+            load_snippets(search_field.value)
+            print("DEBUG: Snippets reloaded after deletion")
+
+        def on_cancel(e):
+            print(f"DEBUG: Deletion cancelled for snippet {snippet_id}")
+            confirm_dialog.open = False
+            page.overlay.remove(confirm_dialog)
+            page.update()
+
+        confirm_dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Удалить сниппет?"),
+            title=ft.Text("Подтверждение удаления"),
             content=ft.Text("Вы уверены, что хотите удалить этот сниппет? Это действие нельзя отменить."),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda e: on_cancel()),
-                ft.TextButton("Удалить", on_click=lambda e: on_confirm()),
+                ft.TextButton("Отмена", on_click=on_cancel),
+                ft.TextButton("Удалить", on_click=on_confirm),
             ],
         )
 
-        page.overlay.append(dialog)
-        dialog.open = True
+        page.overlay.append(confirm_dialog)
+        confirm_dialog.open = True
         page.update()
-        print(f"DEBUG: Delete confirmation dialog opened for snippet {snippet_id}")
+
 
     def handle_edit(snippet_id: int, title: str, language: str, cells: list):
         """Handle edit button click."""

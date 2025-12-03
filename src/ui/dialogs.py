@@ -43,7 +43,6 @@ class AddSnippetDialog:
         self.cells_editor = MultiCellEditor(
             cells=[{
                 "type": "code",
-                "language": "python",
                 "content": ""
             }],
             on_change=self._on_cells_change
@@ -53,15 +52,19 @@ class AddSnippetDialog:
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Новый сниппет (многоячейковый)"),
-            content=ft.Column(
-                [
-                    self.title_field,
-                    self.lang_field,
-                    self.cells_editor
-                ],
-                height=600,
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        self.title_field,
+                        self.lang_field,
+                        self.cells_editor
+                    ],
+                    scroll=ft.ScrollMode.AUTO,
+                    spacing=10
+                ),
                 width=800,
-                scroll=ft.ScrollMode.AUTO
+                height=600,
+                padding=20
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self._handle_cancel),
@@ -71,24 +74,28 @@ class AddSnippetDialog:
 
     def _on_cells_change(self, cells: list):
         """Handle changes in cells editor."""
-        print(f"DEBUG: Cells changed, number of cells: {len(cells) if cells else 0}")
+        pass
 
     def _handle_submit(self, e):
         """Handle submit button click."""
         print(f"DEBUG: AddSnippetDialog._handle_submit called - title: {self.title_field.value}")
 
-        if not self.title_field.value or not self.cells_editor.cells:
-            print("DEBUG: Error - required fields are empty")
+        if not self.title_field.value:
+            print("DEBUG: Error - title is empty")
             # Show error notification
-            if hasattr(self, 'dialog') and hasattr(self.dialog.page, 'snack_bar'):
-                self.dialog.page.snack_bar = ft.SnackBar(ft.Text("Пожалуйста, заполните все обязательные поля!"))
-                self.dialog.page.snack_bar.open = True
-                self.dialog.page.update()
+            if hasattr(e, 'page'):
+                snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название сниппета!"))
+                e.page.overlay.append(snack_bar)
+                snack_bar.open = True
+                e.page.update()
             return
 
-        print(f"DEBUG: Created snippet with {len(self.cells_editor.cells)} cells")
-        self.on_submit(self.title_field.value, self.lang_field.value or "python", self.cells_editor.cells)
-        print("DEBUG: on_submit callback called successfully")
+        cells = self.cells_editor.get_cells()
+        if not cells:
+            cells = [{"type": "code", "content": ""}]
+
+        print(f"DEBUG: Created snippet with {len(cells)} cells")
+        self.on_submit(self.title_field.value, self.lang_field.value or "python", cells)
 
     def _handle_cancel(self, e):
         """Handle cancel button click."""
@@ -97,7 +104,7 @@ class AddSnippetDialog:
     def open(self, page: ft.Page):
         """Open the dialog."""
         print("DEBUG: AddSnippetDialog.open called")
-        page.dialog = self.dialog
+        page.overlay.append(self.dialog)
         self.dialog.open = True
         page.update()
         print("DEBUG: AddSnippetDialog opened successfully")
@@ -106,7 +113,7 @@ class AddSnippetDialog:
         """Close the dialog."""
         print("DEBUG: AddSnippetDialog.close called")
         self.dialog.open = False
-        page.dialog = None
+        page.overlay.remove(self.dialog)
         page.update()
         print("DEBUG: AddSnippetDialog closed successfully")
 
@@ -114,11 +121,7 @@ class AddSnippetDialog:
         """Clear all form fields."""
         self.title_field.value = ""
         self.lang_field.value = "python"
-        self.cells_editor.update_cells([{
-            "type": "code",
-            "language": "python",
-            "content": ""
-        }])
+        self.cells_editor.load_cells([{"type": "code", "content": ""}])
 
 
 class EditSnippetDialog:
@@ -167,15 +170,19 @@ class EditSnippetDialog:
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Редактировать сниппет"),
-            content=ft.Column(
-                [
-                    self.title_field,
-                    self.lang_field,
-                    self.cells_editor
-                ],
-                height=600,
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        self.title_field,
+                        self.lang_field,
+                        self.cells_editor
+                    ],
+                    scroll=ft.ScrollMode.AUTO,
+                    spacing=10
+                ),
                 width=800,
-                scroll=ft.ScrollMode.AUTO
+                height=600,
+                padding=20
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self._handle_cancel),
@@ -185,27 +192,28 @@ class EditSnippetDialog:
 
     def _on_cells_change(self, cells: list):
         """Handle changes in cells editor."""
-        print(f"DEBUG: Cells changed, number of cells: {len(cells) if cells else 0}")
+        pass
 
     def _handle_submit(self, e):
         """Handle submit button click."""
         print(f"DEBUG: EditSnippetDialog._handle_submit called - title: {self.title_field.value}")
 
-        if not self.title_field.value or not self.cells_editor.cells:
-            print("DEBUG: Error - required fields are empty")
-            # Show error notification
-            if hasattr(self, 'dialog') and hasattr(self.dialog.page, 'snack_bar'):
-                self.dialog.page.snack_bar = ft.SnackBar(ft.Text("Пожалуйста, заполните все обязательные поля!"))
-                self.dialog.page.snack_bar.open = True
-                self.dialog.page.update()
+        if not self.title_field.value:
+            print("DEBUG: Error - title is empty")
+            if hasattr(e, 'page'):
+                snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название сниппета!"))
+                e.page.overlay.append(snack_bar)
+                snack_bar.open = True
+                e.page.update()
             return
+
+        cells = self.cells_editor.get_cells()
+        if not cells:
+            cells = [{"type": "code", "content": ""}]
 
         if self.snippet_id is not None:
             print(f"DEBUG: Calling on_submit with snippet_id {self.snippet_id}")
-            self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", self.cells_editor.cells)
-            print("DEBUG: on_submit callback called successfully")
-        else:
-            print("DEBUG: Cannot submit - snippet_id is None")
+            self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", cells)
 
     def _handle_cancel(self, e):
         """Handle cancel button click."""
@@ -219,10 +227,10 @@ class EditSnippetDialog:
         self.lang_field.value = language
 
         # Load all cells into the editor
-        self.cells_editor.update_cells(cells)
+        self.cells_editor.load_cells(cells)  # Убедитесь, что это есть!
         print(f"DEBUG: Loaded {len(cells)} cells into editor")
 
-        page.dialog = self.dialog
+        page.overlay.append(self.dialog)  # ВАЖНО: page.overlay.append, а не page.dialog
         self.dialog.open = True
         page.update()
         print("DEBUG: EditSnippetDialog opened successfully")
@@ -231,7 +239,7 @@ class EditSnippetDialog:
         """Close the dialog."""
         print("DEBUG: EditSnippetDialog.close called")
         self.dialog.open = False
-        page.dialog = None
+        page.overlay.remove(self.dialog)  # ВАЖНО: page.overlay.remove
         page.update()
         print("DEBUG: EditSnippetDialog closed successfully")
 
@@ -239,5 +247,5 @@ class EditSnippetDialog:
         """Clear all form fields."""
         self.title_field.value = ""
         self.lang_field.value = "python"
-        self.cells_editor.update_cells([])
+        self.cells_editor.load_cells([])
         self.snippet_id = None

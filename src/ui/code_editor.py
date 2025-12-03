@@ -1,12 +1,11 @@
 import flet as ft
-from typing import Callable, Optional
-
+from typing import List, Dict, Callable, Optional
 
 class CodeEditor:
     """
     Улучшенный редактор кода с подсветкой синтаксиса
     """
-    
+
     def __init__(
         self,
         label: str = "Содержимое ячейки",
@@ -21,7 +20,7 @@ class CodeEditor:
         self._multiline = True
         self._min_lines = 10
         self._max_lines = 20
-        
+
         # Создаем текстовое поле для ввода
         self.text_field = ft.TextField(
             label=label,
@@ -33,7 +32,7 @@ class CodeEditor:
             text_style=ft.TextStyle(font_family="Consolas"),
             on_change=self._handle_text_change
         )
-        
+
         # Создаем Text элемент для просмотра (без подсветки синтаксиса)
         self.code_view = ft.Text(
             value=value,
@@ -41,16 +40,16 @@ class CodeEditor:
             font_family="Consolas",
             style=ft.TextStyle(font_family="Consolas")
         )
-        
+
         # Переключатель между редактором и просмотров
         self.view_mode = "edit"  # "edit" или "preview"
-        
+
     def _handle_text_change(self, e):
         """Обработка изменения текста"""
         self.value = e.control.value
         if self.on_change:
             self.on_change(self.value)
-    
+
     def build(self):
         """Создание UI компонента"""
         # Кнопки переключения режима
@@ -59,7 +58,7 @@ class CodeEditor:
             tooltip="Режим редактирования",
             on_click=self._toggle_view_mode
         )
-        
+
         # Основной контейнер
         self.editor_container = ft.Container(
             content=self.text_field,
@@ -68,7 +67,7 @@ class CodeEditor:
             padding=5,
             expand=True
         )
-        
+
         return ft.Column(
             controls=[
                 ft.Row(
@@ -82,7 +81,7 @@ class CodeEditor:
             ],
             expand=True
         )
-    
+
     def _toggle_view_mode(self, e):
         """Переключение между режимами редактирования и просмотра"""
         if self.view_mode == "edit":
@@ -98,11 +97,11 @@ class CodeEditor:
             self.toggle_button.icon = ft.icons.CODE_OUTLINED
             self.toggle_button.tooltip = "Режим просмотра"
             self.view_mode = "edit"
-        
+
         # Обновление страницы, если возможно
         if hasattr(e, 'page'):
             e.page.update()
-    
+
     def update_content(self, content: str, language: str = None):
         """Обновление содержимого редактора"""
         self.text_field.value = content
@@ -112,196 +111,177 @@ class CodeEditor:
         # Обновление страницы, если возможно
         if hasattr(self, 'page'):
             self.page.update()
-    
+
+    def get_cells(self) -> List[Dict]:
+        """Возвращает список ячеек."""
+        print("Ошибка в get_cells 100%")
+        return self.cells
+
     @property
     def content(self):
         """Получение текущего содержимого"""
         return self.text_field.value if self.text_field.value else ""
 
 
-class MultiCellEditor:
-    """
-    Редактор для нескольких ячеек сниппета
-    """
-    
-    def __init__(self, cells: list = None, on_change: Optional[Callable[[list], None]] = None):
+from typing import List, Dict, Callable, Optional
+
+
+class MultiCellEditor(ft.UserControl):
+    """Редактор для нескольких ячеек кода."""
+
+    def __init__(self, cells: Optional[List[Dict]] = None, on_change: Optional[Callable] = None):
+        super().__init__()
         self.cells = cells or []
         self.on_change = on_change
-        self.editors = []
-        
+        self.cell_widgets = []
+
+    def build(self):
+        """Build the control."""
+        self.column = ft.Column()
+
+        # Инициализация колонки с ячейками
+        self.column.controls = []
+        for cell in self.cells:
+            self._add_cell_to_column(cell)
+
         # Кнопка добавления новой ячейки
-        self.add_cell_button = ft.ElevatedButton(
-            "Добавить ячейку",
-            icon=ft.icons.ADD_OUTLINED,
-            on_click=self._add_cell
+        self.column.controls.append(
+            ft.ElevatedButton(
+                "Добавить ячейку",
+                icon=ft.icons.ADD_OUTLINED,
+                on_click=self._add_cell,
+            )
         )
-        
-        # Контейнер для ячеек
-        self.cells_container = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
-        
-        # Инициализация существующих ячеек
-        self._init_cells()
-    
-    def _init_cells(self):
-        """Инициализация существующих ячеек"""
-        self.cells_container.controls.clear()
-        self.editors.clear()
-        
-        for i, cell in enumerate(self.cells):
-            cell_editor = self._create_cell_editor(i, cell)
-            self.cells_container.controls.append(cell_editor)
-            self.editors.append(cell_editor)
-    
-    def _create_cell_editor(self, index: int, cell: dict):
-        """Создание редактора для одной ячейки"""
-        cell_type = cell.get("type", "code")
-        content = cell.get("content", "")
-        language = cell.get("language", "python")
-        
-        # Выбор типа ячейки
-        type_dropdown = ft.Dropdown(
-            label="Тип ячейки",
-            width=200,
-            options=[
-                ft.dropdown.Option("text", "Текст"),
-                ft.dropdown.Option("code", "Код")
-            ],
-            value=cell_type,
-            on_change=lambda e: self._update_cell_type(index, e.control.value)
-        )
-        
-        # Язык программирования (для кода)
-        lang_dropdown = ft.Dropdown(
-            label="Язык",
-            width=200,
-            options=[
-                ft.dropdown.Option("python", "Python"),
-                ft.dropdown.Option("javascript", "JavaScript"),
-                ft.dropdown.Option("sql", "SQL"),
-                ft.dropdown.Option("html", "HTML"),
-                ft.dropdown.Option("css", "CSS"),
-                ft.dropdown.Option("c++", "C++"),
-                ft.dropdown.Option("java", "Java"),
-                ft.dropdown.Option("go", "Go"),
-                ft.dropdown.Option("rust", "Rust"),
-                ft.dropdown.Option("bash", "Bash"),
-                ft.dropdown.Option("markdown", "Markdown"),
-                ft.dropdown.Option("json", "JSON"),
-                ft.dropdown.Option("yaml", "YAML"),
-                ft.dropdown.Option("xml", "XML"),
-            ],
-            value=language,
-            visible=(cell_type == "code"),
-            on_change=lambda e: self._update_cell_language(index, e.control.value)
-        )
-        
-        # Редактор содержимого
-        code_editor = CodeEditor(
-            label="Содержимое",
+
+        return self.column
+
+    def _add_cell_to_column(self, cell: Dict):
+        """Добавляет ячейку в колонку."""
+        cell_type = cell.get('type', 'code')
+        content = cell.get('content', '')
+
+        # Создаем виджет ячейки
+        text_field = ft.TextField(
             value=content,
-            language=language if cell_type == "code" else "markdown",
-            on_change=lambda value: self._update_cell_content(index, value)
+            multiline=True,
+            min_lines=3,
+            max_lines=10,
+            expand=True,
         )
-        
+
+        # Сохраняем ссылку на поле ввода для обновления
+        def on_text_change(e):
+            idx = next(i for i, c in enumerate(self.cell_widgets) if c['text_field'] == e.control)
+            if 0 <= idx < len(self.cells):
+                self.cells[idx]['content'] = e.control.value
+                if self.on_change:
+                    self.on_change(self.cells)
+
+        text_field.on_change = on_text_change
+
+        cell_widget = ft.Container(
+            content=ft.Column([
+                ft.Text("Код:" if cell_type == 'code' else "Markdown:",
+                        size=14, weight=ft.FontWeight.BOLD),
+                text_field
+            ]),
+            padding=10,
+            border=ft.border.all(1, ft.colors.OUTLINE),
+            border_radius=5,
+            margin=ft.margin.only(bottom=10),
+        )
+
         # Кнопка удаления ячейки
         delete_button = ft.IconButton(
             icon=ft.icons.DELETE_OUTLINE,
+            icon_color=ft.colors.ERROR,
             tooltip="Удалить ячейку",
-            on_click=lambda e: self._remove_cell(index),
-            icon_color=ft.colors.RED
         )
-        
-        def toggle_lang_visibility(e):
-            """Переключение видимости выпадающего списка языка"""
-            lang_dropdown.visible = type_dropdown.value == "code"
-            # Обновление страницы, если возможно
-            if hasattr(e, 'page'):
-                e.page.update()
-        
-        type_dropdown.on_change = toggle_lang_visibility
-        
-        return ft.Card(
-            content=ft.Container(
-                content=ft.Column([
-                    ft.Row([type_dropdown, lang_dropdown, delete_button]),
-                    code_editor.build()
-                ]),
-                padding=10
-            ),
-            elevation=2
+
+        def on_delete_click(e, idx=len(self.cell_widgets)):
+            self._remove_cell(idx)
+
+        delete_button.on_click = on_delete_click
+
+        cell_container = ft.Row(
+            controls=[
+                ft.Container(content=cell_widget, expand=True),
+                delete_button
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
-    
+
+        # Вставляем перед кнопкой "Добавить ячейку"
+        self.column.controls.insert(len(self.column.controls) - 1, cell_container)
+        self.cell_widgets.append({
+            'container': cell_container,
+            'text_field': text_field,
+            'type': cell_type,
+            'content': content
+        })
+
     def _add_cell(self, e):
-        """Добавление новой ячейки"""
-        new_cell = {
-            "type": "code",
-            "language": "python",
-            "content": ""
-        }
+        """Добавляет новую ячейку."""
+        new_cell = {'type': 'code', 'content': ''}
         self.cells.append(new_cell)
-        
-        cell_editor = self._create_cell_editor(len(self.cells) - 1, new_cell)
-        self.cells_container.controls.append(cell_editor)
-        self.editors.append(cell_editor)
-        
+        self._add_cell_to_column(new_cell)
+        self.update()
+
         if self.on_change:
             self.on_change(self.cells)
-        
-        # Обновление страницы, если возможно
-        if hasattr(e, 'page'):
-            e.page.update()
-    
+
     def _remove_cell(self, index: int):
-        """Удаление ячейки"""
+        """Удаляет ячейку по индексу."""
         if 0 <= index < len(self.cells):
+            # Удаляем из списков
             self.cells.pop(index)
-            self.cells_container.controls.pop(index)
-            self.editors.pop(index)
-            
-            # Переиндексация оставшихся редакторов
-            for i, editor in enumerate(self.editors):
-                # Нужно пересоздать редакторы с правильными индексами
-                pass
-            
+
+            # Удаляем виджет из column.controls
+            # (минус 1 для учета кнопки добавления в конце)
+            if index < len(self.column.controls) - 1:
+                self.column.controls.pop(index)
+
+            # Обновляем cell_widgets
+            self.cell_widgets.pop(index)
+
+            # Обновляем индексы для оставшихся кнопок удаления
+            for i, cell_data in enumerate(self.cell_widgets):
+                # Создаем новую функцию с правильным индексом
+                def make_delete_handler(idx):
+                    return lambda e: self._remove_cell(idx)
+
+                # Находим кнопку удаления в контейнере
+                delete_btn = cell_data['container'].controls[1]  # 0 - content, 1 - delete button
+                delete_btn.on_click = make_delete_handler(i)
+
+            self.update()
+
             if self.on_change:
                 self.on_change(self.cells)
-            
-            # Обновление страницы, если возможно
-            if hasattr(self, 'page'):
-                self.page.update()
-    
-    def _update_cell_type(self, index: int, cell_type: str):
-        """Обновление типа ячейки"""
-        if 0 <= index < len(self.cells):
-            self.cells[index]["type"] = cell_type
-            if self.on_change:
-                self.on_change(self.cells)
-    
-    def _update_cell_language(self, index: int, language: str):
-        """Обновление языка ячейки"""
-        if 0 <= index < len(self.cells):
-            self.cells[index]["language"] = language
-            if self.on_change:
-                self.on_change(self.cells)
-    
-    def _update_cell_content(self, index: int, content: str):
-        """Обновление содержимого ячейки"""
-        if 0 <= index < len(self.cells):
-            self.cells[index]["content"] = content
-            if self.on_change:
-                self.on_change(self.cells)
-    
-    def build(self):
-        """Создание UI компонента"""
-        return ft.Column([
-            ft.Row([self.add_cell_button], alignment=ft.MainAxisAlignment.END),
-            self.cells_container
-        ], expand=True)
-    
-    def update_cells(self, cells: list):
-        """Обновление всех ячеек"""
-        self.cells = cells or []
-        self._init_cells()
-        # Обновление страницы, если возможно
-        if hasattr(self, 'page'):
-            self.page.update()
+
+    def get_cells(self) -> List[Dict]:
+        """Возвращает список ячеек."""
+        return self.cells
+
+    def load_cells(self, cells: List[Dict]):
+        """Загружает ячейки в редактор."""
+        self.cells = cells.copy()  # Создаем копию
+        self.cell_widgets = []
+
+        # Очищаем текущие контролы
+        self.column.controls.clear()
+
+        # Добавляем все ячейки
+        for cell in self.cells:
+            self._add_cell_to_column(cell)
+
+        # Добавляем кнопку добавления
+        self.column.controls.append(
+            ft.ElevatedButton(
+                "Добавить ячейку",
+                icon=ft.icons.ADD_OUTLINED,
+                on_click=self._add_cell,
+            )
+        )
+
+        self.update()
