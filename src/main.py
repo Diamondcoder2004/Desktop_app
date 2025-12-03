@@ -127,7 +127,7 @@ def main(page: ft.Page):
         label="Поиск по названию, языку или тегам",
         prefix_icon="search",
         expand=True,
-        on_change=lambda e: print(f"Поиск изменился: {e.control.value}")
+        on_change=lambda e: handle_search(e)
     )
 
 
@@ -340,8 +340,7 @@ def main(page: ft.Page):
         dialog.open(page, snippet_id, title, language, cells)
         print(f"DEBUG: Edit dialog opened successfully for snippet {snippet_id}")
 
-    # Connect search field
-    search_field.on_change = handle_search
+
 
     # Create layout
     page.add(
