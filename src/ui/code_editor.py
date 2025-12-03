@@ -34,13 +34,12 @@ class CodeEditor:
             on_change=self._handle_text_change
         )
         
-        # Создаем Code элемент для предварительного просмотра с подсветкой
-        self.code_view = ft.Code(
+        # Создаем Text элемент для просмотра (без подсветки синтаксиса)
+        self.code_view = ft.Text(
             value=value,
-            language=language,
-            theme="github-dark" if ft.ThemeMode.DARK else "github-light",
             selectable=True,
-            expand=True
+            font_family="Consolas",
+            style=ft.TextStyle(font_family="Consolas")
         )
         
         # Переключатель между редактором и просмотров
@@ -87,9 +86,8 @@ class CodeEditor:
     def _toggle_view_mode(self, e):
         """Переключение между режимами редактирования и просмотра"""
         if self.view_mode == "edit":
-            # Переключаемся в режим просмотра с подсветкой
+            # Переключаемся в режим просмотра
             self.code_view.value = self.text_field.value
-            self.code_view.language = self.language
             self.editor_container.content = self.code_view
             self.toggle_button.icon = ft.icons.EDIT
             self.toggle_button.tooltip = "Режим редактирования"
