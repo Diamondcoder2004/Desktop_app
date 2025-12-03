@@ -12,21 +12,21 @@ def test_imports():
     print("Testing module imports...")
     
     try:
-        from src.database import Database
+        from src.models.database import Database
         print("✓ Database module imported successfully")
     except ImportError as e:
         print(f"✗ Failed to import Database: {e}")
         return False
     
     try:
-        from src.snippet_card import SnippetCard
+        from src.ui.snippet_card import SnippetCard
         print("✓ SnippetCard module imported successfully")
     except ImportError as e:
         print(f"✗ Failed to import SnippetCard: {e}")
         return False
     
     try:
-        from src.dialogs import AddSnippetDialog, EditSnippetDialog
+        from src.ui.dialogs import AddSnippetDialog, EditSnippetDialog
         print("✓ Dialogs module imported successfully")
     except ImportError as e:
         print(f"✗ Failed to import Dialogs: {e}")
@@ -46,7 +46,7 @@ def test_database():
     print("\nTesting database functionality...")
     
     try:
-        from src.database import Database
+        from src.models.database import Database
         
         # Create a temporary database for testing
         db = Database("test_snippets.db")
