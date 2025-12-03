@@ -24,11 +24,11 @@ def initialize_demo_data(db: Database):
     """Initialize the database with demo multi-cell snippets"""
     # Check if database is empty
     snippets = db.get_snippets()
-    print(f"Инициализация: в базе {len(snippets)} сниппетов")
+    print(f"DEBUG: initialize_demo_data - found {len(snippets)} snippets in database")
 
     if not snippets:
-        print("Initializing demo multi-cell data...")
-
+        print("DEBUG: Initializing demo multi-cell data...")
+        
         # Python Data Science snippet with multiple cells
         python_ds_cells = [
             {
@@ -100,7 +100,9 @@ services:
         ]
         db.add_snippet("Docker: Команды и Compose", "dockerfile", docker_cells, "docker, devops, container")
 
-        print("Demo multi-cell data initialized!")
+        print("DEBUG: Demo multi-cell data initialized!")
+    else:
+        print(f"DEBUG: Database already has {len(snippets)} snippets, skipping initialization")
 
 
 def main(page: ft.Page):
@@ -112,6 +114,7 @@ def main(page: ft.Page):
     page.padding = 20
 
     print("=== ПРИЛОЖЕНИЕ ЗАПУЩЕНО ===")
+    print(f"DEBUG: Page object created with {len(page.controls) if page.controls else 0} initial controls")
 
     # Initialize database
     db = Database()
@@ -147,16 +150,17 @@ def main(page: ft.Page):
     # Functions
     def load_snippets(search_query: str = ""):
         """Load snippets from database."""
-        print(f"Загрузка сниппетов, поиск: '{search_query}'")
+        print(f"DEBUG: load_snippets called with search_query: '{search_query}'")
         snippets_grid.controls.clear()
-
+        
+        print("DEBUG: Fetching snippets from database...")
         snippets = db.get_snippets(search_query)
-        print(f"Загружено {len(snippets)} сниппетов")
+        print(f"DEBUG: Loaded {len(snippets)} snippets from database")
 
         for snippet in snippets:
             snippet_id, title, language, cells, tags = snippet
-            print(f"  Создаю карточку: {title} (ID: {snippet_id})")
-
+            print(f"DEBUG: Creating card for snippet: {title} (ID: {snippet_id})")
+            
             card = SnippetCard(
                 snippet_id=snippet_id,
                 title=title,
@@ -167,13 +171,16 @@ def main(page: ft.Page):
                 on_edit=handle_edit
             )
             snippets_grid.controls.append(card)
-
+        
+        print(f"DEBUG: Updated snippets grid with {len(snippets_grid.controls)} cards")
         page.update()
+        print("DEBUG: Page updated successfully")
 
     def handle_search(e):
         """Handle search field changes."""
-        print(f"Обработка поиска: {search_field.value}")
+        print(f"DEBUG: handle_search called with value: {search_field.value}")
         load_snippets(search_field.value)
+        print(f"DEBUG: Search completed for query: '{search_field.value}'")
 
     def test_add_directly(e):
         """Прямое добавление для теста."""
@@ -201,66 +208,96 @@ def main(page: ft.Page):
 
     def handle_add_snippet(e):
         """Handle add snippet button click."""
-        print("\n=== ОТКРЫТИЕ ДИАЛОГА ДОБАВЛЕНИЯ ===")
+        print("\nDEBUG: === handle_add_snippet called ===")
 
         def on_submit(title: str, language: str, cells: list):
-            print(f"✓ Диалог: получены данные")
-            print(f"  Title: {title}")
-            print(f"  Language: {language}")
-            print(f"  Cells: {cells}")
+            print(f"DEBUG: on_submit called - title: {title}, language: {language}")
+            print(f"DEBUG: Number of cells: {len(cells)}")
+            for i, cell in enumerate(cells):
+                print(f"DEBUG: Cell {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} chars")
 
             try:
+                print("DEBUG: Adding snippet to database...")
                 snippet_id = db.add_snippet(title, language, cells, "")
-                print(f"✓ Сниппет добавлен в БД, ID: {snippet_id}")
+                print(f"DEBUG: Snippet added successfully with ID: {snippet_id}")
 
                 # Закрываем диалог
+                print("DEBUG: Closing dialog...")
                 dialog.close(page)
 
                 # Обновляем список
+                print("DEBUG: Reloading snippets...")
                 load_snippets(search_field.value)
 
                 # Показываем уведомление
+                print("DEBUG: Showing success notification...")
                 page.snack_bar = ft.SnackBar(ft.Text(f"Сниппет '{title}' добавлен!"))
                 page.snack_bar.open = True
                 page.update()
+                print("DEBUG: Add snippet operation completed successfully")
 
             except Exception as ex:
-                print(f"✗ Ошибка при добавлении в БД: {ex}")
+                print(f"DEBUG: Error in on_submit: {ex}")
+                import traceback
+                traceback.print_exc()
                 page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
                 page.snack_bar.open = True
                 page.update()
 
         def on_cancel():
-            print("✗ Диалог отменен")
+            print("DEBUG: Dialog cancelled by user")
             dialog.close(page)
 
+        print("DEBUG: Creating AddSnippetDialog...")
         dialog = AddSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        print("✓ Диалог создан, открываю...")
+        print("DEBUG: Opening dialog...")
         dialog.open(page)
+        print("DEBUG: Dialog opened successfully")
 
     def handle_copy(yaml_content: str):
         """Handle copy button click."""
-        pyperclip.copy(yaml_content)
-        page.snack_bar = ft.SnackBar(ft.Text("YAML содержимое скопировано в буфер!"))
-        page.snack_bar.open = True
-        page.update()
+        print(f"DEBUG: handle_copy called with content length: {len(yaml_content) if yaml_content else 0}")
+        try:
+            pyperclip.copy(yaml_content)
+            print("DEBUG: Content copied to clipboard successfully")
+            page.snack_bar = ft.SnackBar(ft.Text("YAML содержимое скопировано в буфер!"))
+            page.snack_bar.open = True
+            page.update()
+            print("DEBUG: Copy operation completed successfully")
+        except Exception as e:
+            print(f"DEBUG: Error in handle_copy: {e}")
+            import traceback
+            traceback.print_exc()
 
     def handle_delete(snippet_id: int):
         """Handle delete button click."""
-        print(f"Удаление сниппета {snippet_id}")
+        print(f"DEBUG: handle_delete called for snippet_id: {snippet_id}")
 
         def on_confirm():
-            db.delete_snippet(snippet_id)
-            dialog.open = False
-            page.dialog = None
-            page.update()
-            load_snippets(search_field.value)
+            print(f"DEBUG: Confirming deletion of snippet {snippet_id}")
+            try:
+                db.delete_snippet(snippet_id)
+                print(f"DEBUG: Snippet {snippet_id} deleted from database")
+                
+                dialog.open = False
+                page.dialog = None
+                page.update()
+                print("DEBUG: Dialog closed, page updated")
+                
+                load_snippets(search_field.value)
+                print(f"DEBUG: Snippets reloaded after deletion")
+            except Exception as e:
+                print(f"DEBUG: Error deleting snippet: {e}")
+                import traceback
+                traceback.print_exc()
 
         def on_cancel():
+            print(f"DEBUG: Deletion cancelled for snippet {snippet_id}")
             dialog.open = False
             page.dialog = None
             page.update()
 
+        print(f"DEBUG: Creating confirmation dialog for snippet {snippet_id}")
         dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Удалить сниппет?"),
@@ -274,21 +311,39 @@ def main(page: ft.Page):
         page.dialog = dialog
         dialog.open = True
         page.update()
+        print(f"DEBUG: Delete confirmation dialog opened for snippet {snippet_id}")
 
     def handle_edit(snippet_id: int, title: str, language: str, cells: list):
         """Handle edit button click."""
-        print(f"Редактирование сниппета {snippet_id}")
+        print(f"DEBUG: handle_edit called for snippet_id: {snippet_id}, title: {title}")
+        print(f"DEBUG: Number of cells to edit: {len(cells)}")
 
         def on_submit(s_id: int, new_title: str, new_language: str, new_cells: list):
-            db.update_snippet(s_id, new_title, new_language, new_cells, "")
-            dialog.close(page)
-            load_snippets(search_field.value)
+            print(f"DEBUG: Edit on_submit called - ID: {s_id}, title: {new_title}, lang: {new_language}")
+            print(f"DEBUG: Number of new cells: {len(new_cells)}")
+            try:
+                db.update_snippet(s_id, new_title, new_language, new_cells, "")
+                print(f"DEBUG: Snippet {s_id} updated successfully in database")
+                
+                dialog.close(page)
+                print("DEBUG: Dialog closed after edit")
+                
+                load_snippets(search_field.value)
+                print("DEBUG: Snippets reloaded after edit")
+            except Exception as e:
+                print(f"DEBUG: Error updating snippet: {e}")
+                import traceback
+                traceback.print_exc()
 
         def on_cancel():
+            print(f"DEBUG: Edit cancelled for snippet {snippet_id}")
             dialog.close(page)
 
+        print(f"DEBUG: Creating EditSnippetDialog for snippet {snippet_id}")
         dialog = EditSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
+        print(f"DEBUG: Opening edit dialog with {len(cells)} cells")
         dialog.open(page, snippet_id, title, language, cells)
+        print(f"DEBUG: Edit dialog opened successfully for snippet {snippet_id}")
 
     # Connect search field
     search_field.on_change = handle_search
@@ -327,4 +382,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main, view=ft.AppView.FLET_APP)
+    ft.app(target=main, port=8501, view=ft.WEB_BROWSER)

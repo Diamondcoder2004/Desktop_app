@@ -145,19 +145,32 @@ class SnippetCard(ft.Container):
 
     def _handle_copy(self):
         """Handle copy button click - copy YAML content."""
+        print(f"DEBUG: SnippetCard._handle_copy called for snippet {self.snippet_id}")
         if self.on_copy:
+            print(f"DEBUG: Creating YAML content from {len(self.cells)} cells")
             yaml_content = yaml.dump(self.cells, allow_unicode=True)
+            print(f"DEBUG: YAML content length: {len(yaml_content)}")
             self.on_copy(yaml_content)
+        else:
+            print(f"DEBUG: No on_copy callback defined for snippet {self.snippet_id}")
 
     def _handle_delete(self):
         """Handle delete button click."""
+        print(f"DEBUG: SnippetCard._handle_delete called for snippet {self.snippet_id}")
         if self.on_delete:
+            print(f"DEBUG: Calling delete callback for snippet {self.snippet_id}")
             self.on_delete(self.snippet_id)
+        else:
+            print(f"DEBUG: No on_delete callback defined for snippet {self.snippet_id}")
 
     def _handle_edit(self):
         """Handle edit button click."""
+        print(f"DEBUG: SnippetCard._handle_edit called for snippet {self.snippet_id}")
         if self.on_edit:
+            print(f"DEBUG: Calling edit callback for snippet {self.snippet_id}")
             self.on_edit(self.snippet_id, self.title, self.language, self.cells)
+        else:
+            print(f"DEBUG: No on_edit callback defined for snippet {self.snippet_id}")
 
     def update_content(self, title: str, language: str, cells: list):
         """Update the card content."""

@@ -1,5 +1,4 @@
 import flet as ft
-from flet_core import animation, transform, alignment, colors
 from typing import Callable, Optional
 import yaml
 
@@ -79,13 +78,17 @@ class AddSnippetDialog:
             ],
         )
 
-    # В dialogs.py, обнови метод _handle_submit в AddSnippetDialog
     def _handle_submit(self, e):
         """Handle submit button click."""
-        print(f"DEBUG: Отправка формы - title: {self.title_field.value}, code: {self.code_field.value}")  # Отладка
+        print(f"DEBUG: AddSnippetDialog._handle_submit called - title: {self.title_field.value}, code length: {len(self.code_field.value) if self.code_field.value else 0}")
 
         if not self.title_field.value or not self.code_field.value:
-            print("DEBUG: Ошибка - не заполнены обязательные поля")  # Отладка
+            print("DEBUG: Error - required fields are empty")
+            # Show error notification
+            if hasattr(self, 'dialog') and hasattr(self.dialog.page, 'snack_bar'):
+                self.dialog.page.snack_bar = ft.SnackBar(ft.Text("Пожалуйста, заполните все обязательные поля!"))
+                self.dialog.page.snack_bar.open = True
+                self.dialog.page.update()
             return
 
         # Create a cell based on selected type
@@ -103,8 +106,9 @@ class AddSnippetDialog:
             }
 
         cells = [cell]
-        print(f"DEBUG: Вызов on_submit с cells: {cells}")  # Отладка
+        print(f"DEBUG: Created cell of type '{cell_type}' with {len(cells)} cells")
         self.on_submit(self.title_field.value, self.lang_field.value or "python", cells)
+        print("DEBUG: on_submit callback called successfully")
 
     def _handle_cancel(self, e):
         """Handle cancel button click."""
@@ -112,15 +116,19 @@ class AddSnippetDialog:
 
     def open(self, page: ft.Page):
         """Open the dialog."""
+        print("DEBUG: AddSnippetDialog.open called")
         page.dialog = self.dialog
         self.dialog.open = True
         page.update()
+        print("DEBUG: AddSnippetDialog opened successfully")
 
     def close(self, page: ft.Page):
         """Close the dialog."""
+        print("DEBUG: AddSnippetDialog.close called")
         self.dialog.open = False
         page.dialog = None
         page.update()
+        print("DEBUG: AddSnippetDialog closed successfully")
 
     def clear_fields(self):
         """Clear all form fields."""
@@ -208,7 +216,15 @@ class EditSnippetDialog:
 
     def _handle_submit(self, e):
         """Handle submit button click."""
+        print(f"DEBUG: EditSnippetDialog._handle_submit called - title: {self.title_field.value}, code length: {len(self.code_field.value) if self.code_field.value else 0}")
+
         if not self.title_field.value or not self.code_field.value:
+            print("DEBUG: Error - required fields are empty")
+            # Show error notification
+            if hasattr(self, 'dialog') and hasattr(self.dialog.page, 'snack_bar'):
+                self.dialog.page.snack_bar = ft.SnackBar(ft.Text("Пожалуйста, заполните все обязательные поля!"))
+                self.dialog.page.snack_bar.open = True
+                self.dialog.page.update()
             return
 
         # Create a cell based on selected type
@@ -226,8 +242,13 @@ class EditSnippetDialog:
             }
 
         cells = [cell]
+        print(f"DEBUG: Created cell of type '{cell_type}' with {len(cells)} cells")
         if self.snippet_id is not None:
+            print(f"DEBUG: Calling on_submit with snippet_id {self.snippet_id}")
             self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", cells)
+            print("DEBUG: on_submit callback called successfully")
+        else:
+            print("DEBUG: Cannot submit - snippet_id is None")
 
     def _handle_cancel(self, e):
         """Handle cancel button click."""
@@ -235,6 +256,7 @@ class EditSnippetDialog:
 
     def open(self, page: ft.Page, snippet_id: int, title: str, language: str, cells: list):
         """Open the dialog with existing snippet data."""
+        print(f"DEBUG: EditSnippetDialog.open called for snippet {snippet_id}")
         self.snippet_id = snippet_id
         self.title_field.value = title
         self.lang_field.value = language
@@ -244,16 +266,20 @@ class EditSnippetDialog:
             first_cell = cells[0]
             self.cell_type.value = first_cell.get("type", "code")
             self.code_field.value = first_cell.get("content", "")
+            print(f"DEBUG: Loaded first cell of type '{first_cell.get('type', 'code')}' with {len(first_cell.get('content', ''))} chars")
 
         page.dialog = self.dialog
         self.dialog.open = True
         page.update()
+        print("DEBUG: EditSnippetDialog opened successfully")
 
     def close(self, page: ft.Page):
         """Close the dialog."""
+        print("DEBUG: EditSnippetDialog.close called")
         self.dialog.open = False
         page.dialog = None
         page.update()
+        print("DEBUG: EditSnippetDialog closed successfully")
 
     def clear_fields(self):
         """Clear all form fields."""
