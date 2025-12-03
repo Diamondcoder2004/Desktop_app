@@ -280,7 +280,7 @@ def main(page: ft.Page):
                 print(f"DEBUG: Snippet {snippet_id} deleted from database")
                 
                 dialog.open = False
-                page.dialog = None
+                page.overlay.remove(dialog)
                 page.update()
                 print("DEBUG: Dialog closed, page updated")
                 
@@ -308,7 +308,7 @@ def main(page: ft.Page):
             ],
         )
 
-        page.dialog = dialog
+        page.overlay.append(dialog)
         dialog.open = True
         page.update()
         print(f"DEBUG: Delete confirmation dialog opened for snippet {snippet_id}")
