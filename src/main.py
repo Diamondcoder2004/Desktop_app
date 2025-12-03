@@ -130,12 +130,7 @@ def main(page: ft.Page):
         on_change=lambda e: print(f"Поиск изменился: {e.control.value}")
     )
 
-    # Тестовая кнопка
-    test_button = ft.ElevatedButton(
-        "ТЕСТ: Добавить напрямую",
-        on_click=lambda e: test_add_directly(e),
-        bgcolor="green"
-    )
+
 
     # Snippets grid
     snippets_grid = ft.GridView(
@@ -355,7 +350,6 @@ def main(page: ft.Page):
                 ft.Row(
                     controls=[
                         search_field,
-                        test_button,
                         ft.ElevatedButton(
                             "Добавить сниппет",
                             icon="add",
