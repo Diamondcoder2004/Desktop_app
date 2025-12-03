@@ -1,6 +1,7 @@
 import flet as ft
 from typing import Callable, Optional
 import yaml
+from .code_editor import MultiCellEditor
 
 
 class AddSnippetDialog:
@@ -9,17 +10,6 @@ class AddSnippetDialog:
     def __init__(self, on_submit: Callable[[str, str, list], None], on_cancel: Callable[[], None]):
         self.on_submit = on_submit
         self.on_cancel = on_cancel
-
-        # Cell type selector
-        self.cell_type = ft.Dropdown(
-            label="Тип ячейки",
-            width=200,
-            options=[
-                ft.dropdown.Option("text"),
-                ft.dropdown.Option("code"),
-            ],
-            value="code"
-        )
 
         # Create form fields
         self.title_field = ft.TextField(
@@ -48,28 +38,29 @@ class AddSnippetDialog:
             ],
             value="python"
         )
-        self.code_field = ft.TextField(
-            label="Содержимое ячейки",
-            multiline=True,
-            min_lines=5,
-            max_lines=15,
-            width=400,
-            text_style=ft.TextStyle(font_family="Consolas")
+
+        # Create multi-cell editor
+        self.cells_editor = MultiCellEditor(
+            cells=[{
+                "type": "code",
+                "language": "python",
+                "content": ""
+            }],
+            on_change=self._on_cells_change
         )
 
         # Create dialog
         self.dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Новый сниппет (одна ячейка)"),
+            title=ft.Text("Новый сниппет (многоячейковый)"),
             content=ft.Column(
                 [
                     self.title_field,
                     self.lang_field,
-                    self.cell_type,
-                    self.code_field
+                    self.cells_editor
                 ],
-                height=450,
-                width=400,
+                height=600,
+                width=800,
                 scroll=ft.ScrollMode.AUTO
             ),
             actions=[
@@ -78,11 +69,15 @@ class AddSnippetDialog:
             ],
         )
 
+    def _on_cells_change(self, cells: list):
+        """Handle changes in cells editor."""
+        print(f"DEBUG: Cells changed, number of cells: {len(cells) if cells else 0}")
+
     def _handle_submit(self, e):
         """Handle submit button click."""
-        print(f"DEBUG: AddSnippetDialog._handle_submit called - title: {self.title_field.value}, code length: {len(self.code_field.value) if self.code_field.value else 0}")
+        print(f"DEBUG: AddSnippetDialog._handle_submit called - title: {self.title_field.value}")
 
-        if not self.title_field.value or not self.code_field.value:
+        if not self.title_field.value or not self.cells_editor.cells:
             print("DEBUG: Error - required fields are empty")
             # Show error notification
             if hasattr(self, 'dialog') and hasattr(self.dialog.page, 'snack_bar'):
@@ -91,23 +86,8 @@ class AddSnippetDialog:
                 self.dialog.page.update()
             return
 
-        # Create a cell based on selected type
-        cell_type = self.cell_type.value or "code"
-        if cell_type == "text":
-            cell = {
-                "type": "text",
-                "content": self.code_field.value
-            }
-        else:  # code
-            cell = {
-                "type": "code",
-                "language": self.lang_field.value or "python",
-                "content": self.code_field.value
-            }
-
-        cells = [cell]
-        print(f"DEBUG: Created cell of type '{cell_type}' with {len(cells)} cells")
-        self.on_submit(self.title_field.value, self.lang_field.value or "python", cells)
+        print(f"DEBUG: Created snippet with {len(self.cells_editor.cells)} cells")
+        self.on_submit(self.title_field.value, self.lang_field.value or "python", self.cells_editor.cells)
         print("DEBUG: on_submit callback called successfully")
 
     def _handle_cancel(self, e):
@@ -133,9 +113,12 @@ class AddSnippetDialog:
     def clear_fields(self):
         """Clear all form fields."""
         self.title_field.value = ""
-        self.code_field.value = ""
         self.lang_field.value = "python"
-        self.cell_type.value = "code"
+        self.cells_editor.update_cells([{
+            "type": "code",
+            "language": "python",
+            "content": ""
+        }])
 
 
 class EditSnippetDialog:
@@ -145,17 +128,6 @@ class EditSnippetDialog:
         self.on_submit = on_submit
         self.on_cancel = on_cancel
         self.snippet_id = None
-
-        # Cell type selector
-        self.cell_type = ft.Dropdown(
-            label="Тип ячейки",
-            width=200,
-            options=[
-                ft.dropdown.Option("text"),
-                ft.dropdown.Option("code"),
-            ],
-            value="code"
-        )
 
         # Create form fields
         self.title_field = ft.TextField(
@@ -184,13 +156,11 @@ class EditSnippetDialog:
             ],
             value="python"
         )
-        self.code_field = ft.TextField(
-            label="Содержимое ячейки",
-            multiline=True,
-            min_lines=5,
-            max_lines=15,
-            width=400,
-            text_style=ft.TextStyle(font_family="Consolas")
+
+        # Create multi-cell editor
+        self.cells_editor = MultiCellEditor(
+            cells=[],
+            on_change=self._on_cells_change
         )
 
         # Create dialog
@@ -201,11 +171,10 @@ class EditSnippetDialog:
                 [
                     self.title_field,
                     self.lang_field,
-                    self.cell_type,
-                    self.code_field
+                    self.cells_editor
                 ],
-                height=450,
-                width=400,
+                height=600,
+                width=800,
                 scroll=ft.ScrollMode.AUTO
             ),
             actions=[
@@ -214,11 +183,15 @@ class EditSnippetDialog:
             ],
         )
 
+    def _on_cells_change(self, cells: list):
+        """Handle changes in cells editor."""
+        print(f"DEBUG: Cells changed, number of cells: {len(cells) if cells else 0}")
+
     def _handle_submit(self, e):
         """Handle submit button click."""
-        print(f"DEBUG: EditSnippetDialog._handle_submit called - title: {self.title_field.value}, code length: {len(self.code_field.value) if self.code_field.value else 0}")
+        print(f"DEBUG: EditSnippetDialog._handle_submit called - title: {self.title_field.value}")
 
-        if not self.title_field.value or not self.code_field.value:
+        if not self.title_field.value or not self.cells_editor.cells:
             print("DEBUG: Error - required fields are empty")
             # Show error notification
             if hasattr(self, 'dialog') and hasattr(self.dialog.page, 'snack_bar'):
@@ -227,25 +200,9 @@ class EditSnippetDialog:
                 self.dialog.page.update()
             return
 
-        # Create a cell based on selected type
-        cell_type = self.cell_type.value or "code"
-        if cell_type == "text":
-            cell = {
-                "type": "text",
-                "content": self.code_field.value
-            }
-        else:  # code
-            cell = {
-                "type": "code",
-                "language": self.lang_field.value or "python",
-                "content": self.code_field.value
-            }
-
-        cells = [cell]
-        print(f"DEBUG: Created cell of type '{cell_type}' with {len(cells)} cells")
         if self.snippet_id is not None:
             print(f"DEBUG: Calling on_submit with snippet_id {self.snippet_id}")
-            self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", cells)
+            self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", self.cells_editor.cells)
             print("DEBUG: on_submit callback called successfully")
         else:
             print("DEBUG: Cannot submit - snippet_id is None")
@@ -261,12 +218,9 @@ class EditSnippetDialog:
         self.title_field.value = title
         self.lang_field.value = language
 
-        # Show first cell (simplified editing)
-        if cells:
-            first_cell = cells[0]
-            self.cell_type.value = first_cell.get("type", "code")
-            self.code_field.value = first_cell.get("content", "")
-            print(f"DEBUG: Loaded first cell of type '{first_cell.get('type', 'code')}' with {len(first_cell.get('content', ''))} chars")
+        # Load all cells into the editor
+        self.cells_editor.update_cells(cells)
+        print(f"DEBUG: Loaded {len(cells)} cells into editor")
 
         page.dialog = self.dialog
         self.dialog.open = True
@@ -284,7 +238,6 @@ class EditSnippetDialog:
     def clear_fields(self):
         """Clear all form fields."""
         self.title_field.value = ""
-        self.code_field.value = ""
         self.lang_field.value = "python"
-        self.cell_type.value = "code"
+        self.cells_editor.update_cells([])
         self.snippet_id = None
