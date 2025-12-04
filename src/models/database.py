@@ -11,9 +11,13 @@ class Database:
     def __init__(self, db_name: str = "snippets.db"):
         print("DEBUG: Инициализация Database")
         # Определяем путь к базе данных
-        current_dir = Path(os.getcwd())
-        src_dir = current_dir / "src" if current_dir.name != "src" else current_dir
-        db_path = src_dir / db_name
+        import sys
+        if getattr(sys, 'frozen', False):  # If running as compiled executable
+            current_dir = Path(sys.executable).parent
+        else:  # If running as script
+            current_dir = Path(__file__).parent  # Use the directory of this file
+        
+        db_path = current_dir / db_name
 
         # Создаем директорию если нужно
         db_path.parent.mkdir(exist_ok=True)
