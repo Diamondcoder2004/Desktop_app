@@ -1,28 +1,16 @@
 import flet as ft
-from typing import Callable, Optional
-import yaml
-try:
-    from .code_editor import MultiCellEditor
-except ImportError:
-    from code_editor import MultiCellEditor
-
-
+from typing import Callable
+from src.ui.code_editor import MultiCellEditor  # Предполагаю, что code_editor.py с MultiCellEditor существует
 
 class AddSnippetDialog:
-    """Dialog for adding a new multi-cell snippet."""
-
-    def __init__(self, on_submit: Callable[[str, str, list], None], on_cancel: Callable[[], None]):
+    def __init__(self, on_submit: Callable[[str, str, list, str], None], on_cancel: Callable[[], None]):
+        print("DEBUG: Инициализация AddSnippetDialog")
         self.on_submit = on_submit
         self.on_cancel = on_cancel
 
-        # Create form fields
-        self.title_field = ft.TextField(
-            label="Название сниппета",
-            width=400,
-            autofocus=True
-        )
+        self.title_field = ft.TextField(label="Название", width=400, autofocus=True)
         self.lang_field = ft.Dropdown(
-            label="Основной язык",
+            label="Язык",
             width=400,
             options=[
                 ft.dropdown.Option("python"),
@@ -42,111 +30,48 @@ class AddSnippetDialog:
             ],
             value="python"
         )
+        self.tags_field = ft.TextField(label="Теги (через запятую)", width=400)
+        self.cells = [{"type": "code", "content": ""}]
 
-        # Create multi-cell editor
-        self.cells_editor = MultiCellEditor(
-            cells=[{
-                "type": "code",
-                "content": ""
-            }],
-            on_change=self._on_cells_change
-        )
-
-        # Create dialog
         self.dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Новый сниппет (многоячейковый)"),
-            content=ft.Container(
-                content=ft.Column(
-                    [
-                        self.title_field,
-                        self.lang_field,
-                        self.cells_editor
-                    ],
-                    scroll=ft.ScrollMode.AUTO,
-                    spacing=10
-                ),
-                width=800,
-                height=600,
-                padding=20
-            ),
+            title=ft.Text("Новый сниппет"),
+            content=ft.Column([
+                self.title_field,
+                self.lang_field,
+                self.tags_field,
+            ], scroll=ft.ScrollMode.AUTO, width=500, height=300),
             actions=[
                 ft.TextButton("Отмена", on_click=self._handle_cancel),
                 ft.ElevatedButton("Сохранить", on_click=self._handle_submit),
-            ],
+            ]
         )
 
-    def _on_cells_change(self, cells: list):
-        """Handle changes in cells editor."""
-        pass
-
     def _handle_submit(self, e):
-        """Handle submit button click."""
-        print(f"DEBUG: AddSnippetDialog._handle_submit called - title: {self.title_field.value}")
-
+        print("DEBUG: Обработка submit в диалоге добавления")
         if not self.title_field.value:
-            print("DEBUG: Error - title is empty")
-            # Show error notification
-            if hasattr(e, 'page'):
-                snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название сниппета!"))
-                e.page.overlay.append(snack_bar)
-                snack_bar.open = True
-                e.page.update()
+            snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название!"))
+            e.page.show_snack_bar(snack_bar)
             return
-
-        cells = self.cells_editor.get_cells()
-        if not cells:
-            cells = [{"type": "code", "content": ""}]
-
-        print(f"DEBUG: Created snippet with {len(cells)} cells")
-        self.on_submit(self.title_field.value, self.lang_field.value or "python", cells)
+        self.on_submit(self.title_field.value, self.lang_field.value or "python", self.cells, self.tags_field.value)
 
     def _handle_cancel(self, e):
-        """Handle cancel button click."""
+        print("DEBUG: Обработка cancel в диалоге добавления")
         self.on_cancel()
-
-    def open(self, page: ft.Page):
-        """Open the dialog."""
-        print("DEBUG: AddSnippetDialog.open called")
-        page.overlay.append(self.dialog)
-        self.dialog.open = True
-        page.update()
-        print("DEBUG: AddSnippetDialog opened successfully")
-
-    def close(self, page: ft.Page):
-        """Close the dialog."""
-        print("DEBUG: AddSnippetDialog.close called")
-        self.dialog.open = False
-        # ВАЖНО: проверяем, что диалог еще в overlay перед удалением
-        if self.dialog in page.overlay:
-            page.overlay.remove(self.dialog)
-        page.update()
-        print("DEBUG: AddSnippetDialog closed successfully")
-
-
-    def clear_fields(self):
-        """Clear all form fields."""
-        self.title_field.value = ""
-        self.lang_field.value = "python"
-        self.cells_editor.load_cells([{"type": "code", "content": ""}])
-
 
 class EditSnippetDialog:
-    """Dialog for editing an existing snippet."""
-
-    def __init__(self, on_submit: Callable[[int, str, str, list], None], on_cancel: Callable[[], None]):
-        self.on_submit = on_submit
+    def __init__(self, on_quick_save: Callable[[str, str, str], None], on_full_edit: Callable[[], None], on_cancel: Callable[[], None]):
+        print("DEBUG: Инициализация EditSnippetDialog")
+        self.on_quick_save = on_quick_save
+        self.on_full_edit = on_full_edit
         self.on_cancel = on_cancel
         self.snippet_id = None
+        self.cells = []
+        self.cells_editor = MultiCellEditor()  # Мини-редактор для cells
 
-        # Create form fields
-        self.title_field = ft.TextField(
-            label="Название сниппета",
-            width=400,
-            autofocus=True
-        )
+        self.title_field = ft.TextField(label="Название", width=400)
         self.lang_field = ft.Dropdown(
-            label="Основной язык",
+            label="Язык",
             width=400,
             options=[
                 ft.dropdown.Option("python"),
@@ -166,95 +91,50 @@ class EditSnippetDialog:
             ],
             value="python"
         )
+        self.tags_field = ft.TextField(label="Теги", width=400)
 
-        # Create multi-cell editor
-        self.cells_editor = MultiCellEditor(
-            cells=[],
-            on_change=self._on_cells_change
-        )
-
-        # Create dialog
         self.dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Редактировать сниппет"),
-            content=ft.Container(
-                content=ft.Column(
-                    [
-                        self.title_field,
-                        self.lang_field,
-                        self.cells_editor
-                    ],
-                    scroll=ft.ScrollMode.AUTO,
-                    spacing=10
-                ),
-                width=800,
-                height=600,
-                padding=20
-            ),
+            title=ft.Text("Быстрое редактирование"),
+            content=ft.Column([
+                self.title_field,
+                self.lang_field,
+                self.tags_field,
+                ft.Divider(),
+                ft.Container(content=self.cells_editor.build(), height=200, expand=True),  # Небольшое окно для cells
+            ], scroll=ft.ScrollMode.AUTO, width=500, height=500),
             actions=[
                 ft.TextButton("Отмена", on_click=self._handle_cancel),
-                ft.ElevatedButton("Сохранить", on_click=self._handle_submit),
-            ],
+                ft.ElevatedButton("Сохранить", on_click=self._handle_quick_save),
+                ft.ElevatedButton("Редактировать полностью", on_click=self._handle_full_edit),
+            ]
         )
 
-    def _on_cells_change(self, cells: list):
-        """Handle changes in cells editor."""
-        pass
-
-    def _handle_submit(self, e):
-        """Handle submit button click."""
-        print(f"DEBUG: EditSnippetDialog._handle_submit called - title: {self.title_field.value}")
-
-        if not self.title_field.value:
-            print("DEBUG: Error - title is empty")
-            if hasattr(e, 'page'):
-                snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название сниппета!"))
-                e.page.overlay.append(snack_bar)
-                snack_bar.open = True
-                e.page.update()
-            return
-
-        cells = self.cells_editor.get_cells()
-        if not cells:
-            cells = [{"type": "code", "content": ""}]
-
-        if self.snippet_id is not None:
-            print(f"DEBUG: Calling on_submit with snippet_id {self.snippet_id}")
-            self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", cells)
-
-    def _handle_cancel(self, e):
-        """Handle cancel button click."""
-        self.on_cancel()
-
-    def open(self, page: ft.Page, snippet_id: int, title: str, language: str, cells: list):
-        """Open the dialog with existing snippet data."""
-        print(f"DEBUG: EditSnippetDialog.open called for snippet {snippet_id}")
+    def open(self, page: ft.Page, snippet_id: int, title: str, language: str, cells: list, tags: str):
+        print(f"DEBUG: Открытие диалога редактирования с тегами '{tags}'")
         self.snippet_id = snippet_id
         self.title_field.value = title
         self.lang_field.value = language
-
-        # Load all cells into the editor
-        self.cells_editor.load_cells(cells)  # Убедитесь, что это есть!
-        print(f"DEBUG: Loaded {len(cells)} cells into editor")
-
-        page.overlay.append(self.dialog)  # ВАЖНО: page.overlay.append, а не page.dialog
+        self.tags_field.value = tags
+        self.cells = cells
+        self.cells_editor.load_cells(cells)  # Загружаем cells в мини-редактор
+        page.dialog = self.dialog
         self.dialog.open = True
         page.update()
-        print("DEBUG: EditSnippetDialog opened successfully")
 
-    def close(self, page: ft.Page):
-        """Close the dialog."""
-        print("DEBUG: EditSnippetDialog.close called")
-        self.dialog.open = False
-        # ВАЖНО: проверяем, что диалог еще в overlay перед удалением
-        if self.dialog in page.overlay:
-            page.overlay.remove(self.dialog)
-        page.update()
-        print("DEBUG: EditSnippetDialog closed successfully")
+    def _handle_quick_save(self, e):
+        print("DEBUG: Обработка quick save в диалоге редактирования")
+        if not self.title_field.value:
+            snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название!"))
+            e.page.show_snack_bar(snack_bar)
+            return
+        new_cells = self.cells_editor.get_cells()  # Получаем обновлённые cells
+        self.on_quick_save(self.title_field.value, self.lang_field.value or "python", self.tags_field.value, new_cells)  # Добавляем new_cells в вызов
 
-    def clear_fields(self):
-        """Clear all form fields."""
-        self.title_field.value = ""
-        self.lang_field.value = "python"
-        self.cells_editor.load_cells([])
-        self.snippet_id = None
+    def _handle_full_edit(self, e):
+        print("DEBUG: Обработка full edit в диалоге редактирования")
+        self.on_full_edit()
+
+    def _handle_cancel(self, e):
+        print("DEBUG: Обработка cancel в диалоге редактирования")
+        self.on_cancel()

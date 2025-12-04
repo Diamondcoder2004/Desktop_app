@@ -1,45 +1,33 @@
 import sqlite3
-from typing import List, Tuple, Optional
-import yaml
-
-import sqlite3
 import os
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Dict, Optional
 import yaml
-
+import traceback
 
 class Database:
-    """Class for handling database operations with SQLite."""
+    """Класс для работы с операциями базы данных SQLite."""
 
     def __init__(self, db_name: str = "snippets.db"):
+        print("DEBUG: Инициализация Database")
         # Определяем путь к базе данных
-        # Если запускаем из корня проекта, создаем в папке src
-        # Если запускаем из папки src, создаем там же
         current_dir = Path(os.getcwd())
-        if current_dir.name == "src" or (current_dir / "src").exists():
-            # Уже в папке src или есть папка src
-            if current_dir.name == "src":
-                db_path = current_dir / db_name
-            else:
-                db_path = current_dir / "src" / db_name
-        else:
-            # В корне проекта, создаем в src
-            db_path = current_dir / "src" / db_name
+        src_dir = current_dir / "src" if current_dir.name != "src" else current_dir
+        db_path = src_dir / db_name
 
         # Создаем директорию если нужно
         db_path.parent.mkdir(exist_ok=True)
 
         self.db_name = str(db_path)
-        print(f"DEBUG: Database path: {self.db_name}")
+        print(f"DEBUG: Путь к базе данных: {self.db_name}")
 
         self.conn = sqlite3.connect(self.db_name, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_table()
 
-
     def create_table(self):
-        """Create the snippets table with rich_content for multi-cell snippets."""
+        """Создание таблицы snippets с rich_content для многоячеечных сниппетов."""
+        print("DEBUG: Создание таблицы если не существует")
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS snippets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,19 +38,18 @@ class Database:
             )
         """)
         self.conn.commit()
+        print("DEBUG: Таблица создана или уже существует")
 
     def add_snippet(self, title: str, language: str, cells: list, tags: str = "") -> int:
-        """Add a new snippet with multi-cell content."""
-        print(f"DEBUG: Database.add_snippet called - title: {title}, language: {language}")
-        print(f"DEBUG: Number of cells to add: {len(cells)}")
+        """Добавление нового сниппета с многоячеечным содержимым."""
+        print(f"DEBUG: Вызов add_snippet - title: {title}, language: {language}, tags: {tags}")
+        print(f"DEBUG: Количество ячеек для добавления: {len(cells)}")
         for i, cell in enumerate(cells):
-            print(f"DEBUG: Cell {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} chars")
+            print(f"DEBUG: Ячейка {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} символов")
 
         try:
-            # Convert cells list to YAML
-            import yaml
             yaml_content = yaml.dump(cells, allow_unicode=True)
-            print(f"DEBUG: YAML content length: {len(yaml_content)}")
+            print(f"DEBUG: Длина YAML-контента: {len(yaml_content)}")
 
             self.cursor.execute(
                 "INSERT INTO snippets (title, language, rich_content, tags) VALUES (?, ?, ?, ?)",
@@ -70,17 +57,16 @@ class Database:
             )
             self.conn.commit()
             result = self.cursor.lastrowid
-            print(f"DEBUG: Snippet added successfully, ID: {result}")
+            print(f"DEBUG: Сниппет добавлен успешно, ID: {result}")
             return result
         except Exception as e:
-            print(f"DEBUG: Error in add_snippet: {e}")
-            import traceback
+            print(f"DEBUG: Ошибка в add_snippet: {e}")
             traceback.print_exc()
             raise
 
-    def get_snippets(self, search_query: str = "") -> List[Tuple]:
-        """Get all snippets, optionally filtered by search query."""
-        print(f"DEBUG: Database.get_snippets called with query: '{search_query}'")
+    def get_snippets(self, search_query: str = "") -> List[Dict]:
+        """Получение всех сниппетов, опционально с фильтром по поисковому запросу."""
+        print(f"DEBUG: Вызов get_snippets с запросом: '{search_query}'")
         if search_query:
             query = """
             SELECT id, title, language, rich_content, tags 
@@ -93,25 +79,29 @@ class Database:
             self.cursor.execute("SELECT id, title, language, rich_content, tags FROM snippets ORDER BY id DESC")
 
         rows = self.cursor.fetchall()
-        print(f"DEBUG: Retrieved {len(rows)} rows from database")
+        print(f"DEBUG: Получено {len(rows)} строк из базы данных")
         snippets = []
         for row in rows:
             try:
                 cells = yaml.safe_load(row[3]) if row[3] else []
-                print(f"DEBUG: Loaded {len(cells)} cells for snippet ID {row[0]}")
-                snippets.append((row[0], row[1], row[2], cells, row[4]))
-            except yaml.YAMLError:
-                print(f"DEBUG: YAML parsing error for snippet ID {row[0]}, using fallback")
-                # Fallback: create a simple code cell
+                print(f"DEBUG: Загружено {len(cells)} ячеек для сниппета ID {row[0]}")
+            except yaml.YAMLError as yaml_err:
+                print(f"DEBUG: Ошибка парсинга YAML для сниппета ID {row[0]}: {yaml_err}, использование fallback")
                 cells = [{"type": "code", "language": row[2], "content": row[3]}]
-                snippets.append((row[0], row[1], row[2], cells, row[4]))
+            snippets.append({
+                "id": row[0],
+                "title": row[1],
+                "language": row[2],
+                "cells": cells,
+                "tags": row[4]
+            })
 
-        print(f"DEBUG: Returning {len(snippets)} snippets")
+        print(f"DEBUG: Возвращаю {len(snippets)} сниппетов")
         return snippets
 
-    def get_snippet_by_id(self, snippet_id: int) -> Optional[Tuple]:
-        """Get a specific snippet by its ID."""
-        print(f"DEBUG: Database.get_snippet_by_id called for ID: {snippet_id}")
+    def get_snippet_by_id(self, snippet_id: int) -> Optional[Dict]:
+        """Получение конкретного сниппета по ID."""
+        print(f"DEBUG: Вызов get_snippet_by_id для ID: {snippet_id}")
         self.cursor.execute(
             "SELECT id, title, language, rich_content, tags FROM snippets WHERE id = ?",
             (snippet_id,)
@@ -120,40 +110,46 @@ class Database:
         if row:
             try:
                 cells = yaml.safe_load(row[3]) if row[3] else []
-                print(f"DEBUG: Loaded snippet {snippet_id} with {len(cells)} cells")
-                return (row[0], row[1], row[2], cells, row[4])
-            except yaml.YAMLError:
-                print(f"DEBUG: YAML parsing error for snippet ID {snippet_id}, using fallback")
+                print(f"DEBUG: Загружен сниппет {snippet_id} с {len(cells)} ячейками")
+            except yaml.YAMLError as yaml_err:
+                print(f"DEBUG: Ошибка парсинга YAML для сниппета ID {snippet_id}: {yaml_err}, использование fallback")
                 cells = [{"type": "code", "language": row[2], "content": row[3]}]
-                return (row[0], row[1], row[2], cells, row[4])
-        print(f"DEBUG: Snippet with ID {snippet_id} not found")
+            return {
+                "id": row[0],
+                "title": row[1],
+                "language": row[2],
+                "cells": cells,
+                "tags": row[4]
+            }
+        print(f"DEBUG: Сниппет с ID {snippet_id} не найден")
         return None
 
     def update_snippet(self, snippet_id: int, title: str, language: str, cells: list, tags: str = ""):
-        """Update an existing snippet."""
-        print(f"DEBUG: Database.update_snippet called for ID: {snippet_id}")
-        print(f"DEBUG: Updating with title: {title}, language: {language}")
-        print(f"DEBUG: Number of cells to update: {len(cells)}")
+        """Обновление существующего сниппета."""
+        print(f"DEBUG: Вызов update_snippet для ID: {snippet_id}")
+        print(f"DEBUG: Обновление с title: {title}, language: {language}, tags: {tags}")
+        print(f"DEBUG: Количество ячеек для обновления: {len(cells)}")
         for i, cell in enumerate(cells):
-            print(f"DEBUG: Cell {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} chars")
-            
+            print(f"DEBUG: Ячейка {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} символов")
+
         yaml_content = yaml.dump(cells, allow_unicode=True)
-        print(f"DEBUG: YAML content length: {len(yaml_content)}")
+        print(f"DEBUG: Длина YAML-контента: {len(yaml_content)}")
         self.cursor.execute(
             "UPDATE snippets SET title = ?, language = ?, rich_content = ?, tags = ? WHERE id = ?",
             (title, language, yaml_content, tags, snippet_id)
         )
         self.conn.commit()
-        print(f"DEBUG: Snippet {snippet_id} updated successfully")
+        print(f"DEBUG: Сниппет {snippet_id} обновлён успешно")
 
     def delete_snippet(self, snippet_id: int):
-        """Delete a snippet from the database."""
-        print(f"DEBUG: Database.delete_snippet called for ID: {snippet_id}")
+        """Удаление сниппета из базы данных."""
+        print(f"DEBUG: Вызов delete_snippet для ID: {snippet_id}")
         self.cursor.execute("DELETE FROM snippets WHERE id = ?", (snippet_id,))
         self.conn.commit()
-        print(f"DEBUG: Snippet {snippet_id} deleted successfully")
+        print(f"DEBUG: Сниппет {snippet_id} удалён успешно")
 
     def close(self):
-        """Close the database connection."""
+        """Закрытие соединения с базой данных."""
+        print("DEBUG: Закрытие соединения с базой данных")
         if self.conn:
             self.conn.close()

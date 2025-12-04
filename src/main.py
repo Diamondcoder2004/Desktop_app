@@ -1,450 +1,200 @@
-# main.py
 import flet as ft
-import sys
-import os
+import logging
+import traceback
+from src.models.database import Database
+from src.ui.components import SnippetEditor
+from src.ui.dialogs import AddSnippetDialog, EditSnippetDialog
+from src.ui.snippet_card import SnippetCard
 
-# Добавляем текущую директорию в путь
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from models.database import Database
-from ui.snippet_card import SnippetCard
-from ui.dialogs import AddSnippetDialog, EditSnippetDialog
-
-
-import pyperclip
-
-
-def initialize_demo_data(db: Database):
-    """Initialize the database with demo multi-cell snippets"""
-    # Check if database is empty
-    snippets = db.get_snippets()
-    print(f"DEBUG: initialize_demo_data - found {len(snippets)} snippets in database")
-
-    if not snippets:
-        print("DEBUG: Initializing demo multi-cell data...")
-        
-        # Python Data Science snippet with multiple cells
-        python_ds_cells = [
-            {
-                "type": "text",
-                "content": "### Основные библиотеки для Data Science на Python\n\n- **pandas** - работа с табличными данными\n- **numpy** - числовые вычисления\n- **scikit-learn** - машинное обучение\n- **pytorch** - глубокое обучение"
-            },
-            {
-                "type": "code",
-                "language": "python",
-                "content": """import pandas as pd
-import numpy as np
-
-# Создание DataFrame
-data = {
-    'Имя': ['Анна', 'Борис', 'Клара'],
-    'Возраст': [25, 30, 35],
-    'Город': ['Москва', 'Санкт-Петербург', 'Казань']
-}
-
-df = pd.DataFrame(data)
-print(df)"""
-            },
-            {
-                "type": "code",
-                "language": "python",
-                "content": """# Пример работы с numpy
-arr = np.array([[1, 2, 3], [4, 5, 6]])
-print("Матрица 2x3:")
-print(arr)
-print(f"Сумма: {arr.sum()}")
-print(f"Среднее: {arr.mean()}")"""
-            }
-        ]
-        db.add_snippet("Python: Data Science", "python", python_ds_cells, "python, datascience, pandas")
-
-        # Docker snippet with YAML
-        docker_cells = [
-            {
-                "type": "text",
-                "content": "### Docker основные команды\n\nУправление контейнерами и образами"
-            },
-            {
-                "type": "code",
-                "language": "bash",
-                "content": """# Основные команды
-docker ps              # Список запущенных контейнеров
-docker images          # Список образов
-docker build -t myapp . # Сборка образа
-docker run -d -p 80:80 nginx # Запуск контейнера"""
-            },
-            {
-                "type": "code",
-                "language": "yaml",
-                "content": """# docker-compose.yml
-version: '3.8'
-services:
-  web:
-    image: nginx:latest
-    ports:
-      - "80:80"
-    volumes:
-      - ./html:/usr/share/nginx/html
-
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_PASSWORD: example"""
-            }
-        ]
-        db.add_snippet("Docker: Команды и Compose", "dockerfile", docker_cells, "docker, devops, container")
-
-        print("DEBUG: Demo multi-cell data initialized!")
-    else:
-        print(f"DEBUG: Database already has {len(snippets)} snippets, skipping initialization")
-
+logging.basicConfig(level=logging.DEBUG, format="DEBUG: %(message)s")
+logger = logging.getLogger("snippethub")
 
 def main(page: ft.Page):
-    """Main entry point."""
-    print("=== ПРИЛОЖЕНИЕ ЗАПУЩЕНО ===")
-    page.scroll = ft.ScrollMode.AUTO
-    # Очищаем overlay при запуске
-    page.overlay.clear()
-    # Page setup
-    page.title = "CodeSnippet Hub - Multi-cell"
-    page.theme_mode = ft.ThemeMode.DARK
+    print("DEBUG: Запуск main функции")
+    page.title = "SnippetHub"
     page.window.width = 1200
     page.window.height = 800
-    page.padding = 20
-    print(f"DEBUG: Page object created with {len(page.controls) if page.controls else 0} initial controls")
 
-    # Initialize database
     db = Database()
+    mode = ft.Ref[str]()
+    mode.current = "list"
+    current_snippet_id = ft.Ref[int]()
 
-    # Initialize demo data
-    initialize_demo_data(db)
+    # Определяем все функции заранее
+    def refresh_list(snippets_grid, search_field):
+        print("DEBUG: Обновление списка сниппетов")
+        load_snippets(snippets_grid, db, search_field.value or "")
 
-    # Search field
-    search_field = ft.TextField(
-        label="Поиск по названию, языку или тегам",
-        prefix_icon="search",
-        expand=True,
-        on_change=lambda e: handle_search(e)
-    )
+    def on_search(e, snippets_grid):
+        print(f"DEBUG: Поиск изменён: {e.control.value}")
+        load_snippets(snippets_grid, db, e.control.value or "")
 
-
-
-    # Snippets grid
-    snippets_grid = ft.GridView(
-        expand=1,
-        runs_count=2,
-        max_extent=500,
-        child_aspect_ratio=1.2,
-        spacing=20,
-        run_spacing=20,
-    )
-
-    # Functions
-    def load_snippets(search_query: str = ""):
-        """Load snippets from database and display them."""
-        print(f"DEBUG: load_snippets called with search_query: '{search_query}'")
-
+    def load_snippets(container: ft.GridView, db: Database, search_query: str = ""):
+        print(f"DEBUG: Загрузка сниппетов с запросом '{search_query}'")
         try:
-            print("DEBUG: Fetching snippets from database...")
+            container.controls.clear()
             snippets = db.get_snippets(search_query)
-            print(f"DEBUG: Loaded {len(snippets)} snippets from database")
-
-            # Очищаем текущие карточки
-            snippets_grid.controls.clear()
-
-            # Создаем новые карточки
             for snippet in snippets:
-                snippet_id, title, language, cells = snippet
-                print(f"DEBUG: Creating card for snippet: {title} (ID: {snippet_id})")
+                print(f"DEBUG: Добавление карточки для сниппета ID {snippet['id']}")
                 card = SnippetCard(
-                    snippet_id=snippet_id,
-                    title=title,
-                    language=language,
-                    cells=cells,
-                    on_copy=handle_copy,
-                    on_delete=handle_delete,
-                    on_edit=handle_edit,
-                    expand=True
+                    snippet_id=snippet['id'],
+                    title=snippet['title'],
+                    language=snippet['language'],
+                    cells=snippet['cells'],
+                    on_copy=lambda yaml_content: on_copy(yaml_content, page),
+                    on_delete=lambda sid: confirm_delete_snippet(page, db, lambda: refresh_list(snippets_grid, search_field), sid),
+                    on_edit=lambda sid, t, l, c: open_edit_dialog(page, db, sid, t, l, c, snippet['tags'], switch_mode)
                 )
-                snippets_grid.controls.append(card)
-
-            print(f"DEBUG: Updated snippets grid with {len(snippets_grid.controls)} cards")
-
-            # Перерисовываем GridView
-            snippets_grid.update()
-
-            # Обновляем страницу
+                container.controls.append(card)
             page.update()
-            print("DEBUG: Page updated successfully")
-
-        except Exception as e:
-            print(f"DEBUG: Error in load_snippets: {e}")
-            import traceback
+            logger.debug(f"Загружено {len(container.controls)} сниппетов")
+        except Exception as ex:
+            print(f"DEBUG: Ошибка в load_snippets: {ex}")
+            logger.error(f"Ошибка в load_snippets: {ex}")
             traceback.print_exc()
 
-            # Показываем ошибку
-            page.snack_bar = None
-            page.snack_bar = ft.SnackBar(
-                content=ft.Text(f"Ошибка при загрузке сниппетов: {e}"),
-                duration=5000
-            )
-            page.snack_bar.open = True
-            page.update()
+    def build_snippet_list():
+        print("DEBUG: Построение списка сниппетов")
+        search_field = ft.TextField(label="Поиск", expand=True)
+        search_field.on_change = lambda e: on_search(e, snippets_grid)
+        snippets_grid = ft.GridView(
+            expand=True,
+            runs_count=3,  # 3 карточки в ряд для заполнения окна
+            max_extent=300,
+            child_aspect_ratio=1.0,
+            spacing=10,
+            run_spacing=10
+        )
+        add_button = ft.ElevatedButton("Добавить сниппет", on_click=lambda e: open_add_dialog(page, db, lambda: refresh_list(snippets_grid, search_field)))
 
+        container = ft.Container(
+            content=ft.Column([
+                ft.Row([search_field, add_button]),
+                ft.Divider(),
+                snippets_grid
+            ]),
+            expand=True,
+            padding=10
+        )
+        load_snippets(snippets_grid, db, "")
+        return container, snippets_grid, search_field
 
-    def handle_search(e):
-        """Handle search field changes."""
-        print(f"DEBUG: handle_search called with value: {search_field.value}")
-        load_snippets(search_field.value)
-        print(f"DEBUG: Search completed for query: '{search_field.value}'")
+    snippet_list, snippets_grid, search_field = build_snippet_list()
 
-    def test_add_directly(e):
-        """Прямое добавление для теста."""
-        print("\n=== ТЕСТ: Прямое добавление ===")
-        test_cells = [
-            {
-                "type": "code",
-                "language": "python",
-                "content": "# Тестовый сниппет\nprint('Test from button')"
-            }
-        ]
-        try:
-            snippet_id = db.add_snippet("Тест напрямую", "python", test_cells, "test")
-            print(f"✓ Сниппет добавлен напрямую, ID: {snippet_id}")
-            # Покажем уведомление
-            snack_bar = ft.SnackBar(ft.Text("Тестовый сниппет добавлен напрямую!"))
-            page.overlay.append(snack_bar)
-            snack_bar.open = True
-            load_snippets(search_field.value)
-            page.update()
-        except Exception as ex:
-            print(f"✗ Ошибка при прямом добавлении: {ex}")
-            snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
-            page.overlay.append(snack_bar)
-            snack_bar.open = True
-            page.update()
+    editor_container = ft.Container(expand=True, padding=10)
 
-    def handle_add_snippet(e):
-        """Handle add snippet button click."""
-        print("\nDEBUG: === handle_add_snippet called ===")
+    main_row = ft.Row([snippet_list, editor_container], expand=True, visible=False)
 
-        def on_submit(title: str, language: str, cells: list):
-            print(f"DEBUG: on_submit called - title: {title}, language: {language}")
-            print(f"DEBUG: Number of cells: {len(cells)}")
-            for i, cell in enumerate(cells):
-                print(f"DEBUG: Cell {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} chars")
+    def switch_mode(new_mode: str, snippet_id: int = None):
+        print(f"DEBUG: Переключение режима на {new_mode}, snippet_id={snippet_id}")
+        mode.current = new_mode
+        if new_mode == "edit" and snippet_id:
+            current_snippet_id.current = snippet_id
+            snippet = db.get_snippet_by_id(snippet_id)
+            print(f"DEBUG: Загружен сниппет для редактирования: {snippet['title'] if snippet else 'Не найден'}")
+            if snippet:
+                editor = SnippetEditor(snippet=snippet, on_save=lambda updated: on_save_full_editor(updated, db, lambda: refresh_list(snippets_grid, search_field)))
+                editor_container.content = editor.build()
+        page.controls.clear()
+        if new_mode == "list":
+            page.add(snippet_list)
+        else:
+            main_row.visible = True
+            page.add(main_row)
+        page.update()
 
-            try:
-                print("DEBUG: Adding snippet to database...")
-                snippet_id = db.add_snippet(title, language, cells, "")
-                print(f"DEBUG: Snippet added successfully with ID: {snippet_id}")
+    switch_mode("list")
 
-                # Закрываем диалог
-                print("DEBUG: Closing dialog...")
-                dialog.close(page)
-
-                # Обновляем список
-                print("DEBUG: Reloading snippets...")
-                load_snippets(search_field.value)
-
-                # Показываем уведомление - ИСПРАВЛЕНО
-                print("DEBUG: Showing success notification...")
-                # Удаляем старый снекбар, если есть
-                page.snack_bar = None
-                # Создаем новый снекбар
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"Сниппет '{title}' добавлен!"),
-                    duration=3000
-                )
-                page.snack_bar.open = True
-                page.update()
-                print("DEBUG: Add snippet operation completed successfully")
-
-            except Exception as ex:
-                print(f"DEBUG: Error in on_submit: {ex}")
-                import traceback
-                traceback.print_exc()
-                # Удаляем старый снекбар, если есть
-                page.snack_bar = None
-                # Создаем новый снекбар с ошибкой
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"Ошибка: {ex}"),
-                    duration=5000
-                )
-                page.snack_bar.open = True
-                page.update()
-        def on_cancel():
-            print("DEBUG: Dialog cancelled by user")
-            dialog.close(page)
-
-        print("DEBUG: Creating AddSnippetDialog...")
-        dialog = AddSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        print("DEBUG: Opening dialog...")
-        dialog.open(page)
-        print("DEBUG: Dialog opened successfully")
-
-    def handle_copy(content: str):
-        """Handle copy button click."""
-        print(f"DEBUG: handle_copy called with content length: {len(content)}")
-
-        try:
-            import pyperclip
-            pyperclip.copy(content)
-            print("DEBUG: Content copied to clipboard successfully")
-
-            # Показываем уведомление
-            page.snack_bar = None
-            page.snack_bar = ft.SnackBar(
-                content=ft.Text("Сниппет скопирован в буфер обмена!"),
-                duration=2000
-            )
-            page.snack_bar.open = True
-            page.update()
-            print("DEBUG: Copy operation completed successfully")
-
-        except Exception as e:
-            print(f"DEBUG: Error copying to clipboard: {e}")
-            page.snack_bar = None
-            page.snack_bar = ft.SnackBar(
-                content=ft.Text(f"Ошибка при копировании: {e}"),
-                duration=5000
-            )
-            page.snack_bar.open = True
-            page.update()
-
-            
-    def handle_delete(snippet_id: int):
-        """Handle delete button click."""
-        print(f"DEBUG: handle_delete called for snippet_id: {snippet_id}")
+    def confirm_delete_snippet(page: ft.Page, db: Database, refresh_func, snippet_id: int):
+        print(f"DEBUG: Открытие диалога подтверждения удаления для {snippet_id}")
 
         def on_confirm(e):
-            print(f"DEBUG: Confirming deletion of snippet {snippet_id}")
-
-            try:
-                db.delete_snippet(snippet_id)
-                print(f"DEBUG: Snippet {snippet_id} deleted from database")
-
-                # Закрываем диалог
-                confirm_dialog.open = False
-                if confirm_dialog in page.overlay:
-                    page.overlay.remove(confirm_dialog)
-                page.update()
-
-                # Перезагружаем список
-                load_snippets(search_field.value)
-                print("DEBUG: Snippets reloaded after deletion")
-
-                # Показываем уведомление
-                page.snack_bar = None
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"Сниппет удален!"),
-                    duration=3000
-                )
-                page.snack_bar.open = True
-                page.update()
-
-            except Exception as ex:
-                print(f"DEBUG: Error deleting snippet: {ex}")
-                page.snack_bar = None
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"Ошибка при удалении: {ex}"),
-                    duration=5000
-                )
-                page.snack_bar.open = True
-                page.update()
-
-        def on_cancel(e):
-            print(f"DEBUG: Deletion cancelled for snippet {snippet_id}")
-            confirm_dialog.open = False
-            if confirm_dialog in page.overlay:
-                page.overlay.remove(confirm_dialog)
+            print("DEBUG: Подтверждение удаления")
+            db.delete_snippet(snippet_id)
+            page.snack_bar = ft.SnackBar(ft.Text("Сниппет удалён"))
+            page.snack_bar.open = True
+            refresh_func()
+            page.dialog.open = False
             page.update()
 
-        print(f"DEBUG: Creating confirmation dialog for snippet {snippet_id}")
+        def on_cancel(e):
+            print("DEBUG: Отмена удаления")
+            page.dialog.open = False
+            page.update()
+
         confirm_dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Подтверждение удаления"),
-            content=ft.Text("Вы уверены, что хотите удалить этот сниппет? Это действие нельзя отменить."),
+            title=ft.Text("Подтвердите удаление"),
+            content=ft.Text("Вы уверены, что хотите удалить этот сниппет?"),
             actions=[
                 ft.TextButton("Отмена", on_click=on_cancel),
-                ft.TextButton("Удалить", on_click=on_confirm),
-            ],
+                ft.ElevatedButton("Удалить", on_click=on_confirm, color="red")
+            ]
         )
-
-        # Очищаем overlay перед добавлением нового диалога
-        page.overlay.clear()
-        page.overlay.append(confirm_dialog)
+        page.dialog = confirm_dialog
         confirm_dialog.open = True
         page.update()
-        print(f"DEBUG: Delete confirmation dialog opened for snippet {snippet_id}")
 
+    def on_copy(yaml_content: str, page: ft.Page):
+        print("DEBUG: Копирование YAML контента")
+        import pyperclip
+        pyperclip.copy(yaml_content)
+        page.snack_bar = ft.SnackBar(ft.Text("YAML скопирован в буфер!"))
+        page.snack_bar.open = True
+        page.update()
 
+    def on_save_full_editor(updated_snippet: dict, db: Database, refresh_func):
+        print(f"DEBUG: Сохранение полного редактора для сниппета {updated_snippet['id']}")
+        db.update_snippet(updated_snippet['id'], updated_snippet['title'], updated_snippet['language'], updated_snippet['cells'], updated_snippet['tags'])
+        page.snack_bar = ft.SnackBar(ft.Text("Сниппет сохранён"))
+        page.snack_bar.open = True
+        refresh_func()
+        page.update()
 
-    def handle_edit(snippet_id: int, title: str, language: str, cells: list):
-        """Handle edit button click."""
-        print(f"DEBUG: handle_edit called for snippet_id: {snippet_id}, title: {title}")
-        print(f"DEBUG: Number of cells to edit: {len(cells)}")
+    def open_add_dialog(page: ft.Page, db: Database, refresh_func):
+        print("DEBUG: Открытие диалога добавления")
 
-        def on_submit(s_id: int, new_title: str, new_language: str, new_cells: list):
-            print(f"DEBUG: Edit on_submit called - ID: {s_id}, title: {new_title}, lang: {new_language}")
-            print(f"DEBUG: Number of new cells: {len(new_cells)}")
-            try:
-                db.update_snippet(s_id, new_title, new_language, new_cells, "")
-                print(f"DEBUG: Snippet {s_id} updated successfully in database")
-                
-                dialog.close(page)
-                print("DEBUG: Dialog closed after edit")
-                
-                load_snippets(search_field.value)
-                print("DEBUG: Snippets reloaded after edit")
-            except Exception as e:
-                print(f"DEBUG: Error updating snippet: {e}")
-                import traceback
-                traceback.print_exc()
+        def handle_submit(title: str, lang: str, cells: list, tags: str):
+            print(f"DEBUG: Отправка нового сниппета: {title}, tags={tags}")
+            db.add_snippet(title, lang, cells, tags)
+            refresh_func()
+            page.dialog.open = False
+            page.update()
 
-        def on_cancel():
-            print(f"DEBUG: Edit cancelled for snippet {snippet_id}")
-            dialog.close(page)
+        def handle_cancel():
+            print("DEBUG: Отмена диалога добавления")
+            page.dialog.open = False
+            page.update()
 
-        print(f"DEBUG: Creating EditSnippetDialog for snippet {snippet_id}")
-        dialog = EditSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        print(f"DEBUG: Opening edit dialog with {len(cells)} cells")
-        dialog.open(page, snippet_id, title, language, cells)
-        print(f"DEBUG: Edit dialog opened successfully for snippet {snippet_id}")
+        dialog = AddSnippetDialog(on_submit=handle_submit, on_cancel=handle_cancel)
+        page.dialog = dialog.dialog
+        page.dialog.open = True
+        page.update()
 
+    def open_edit_dialog(page: ft.Page, db: Database, snippet_id: int, title: str, language: str, cells: list, tags: str, switch_mode_func):
+        print(f"DEBUG: Открытие диалога редактирования для {snippet_id}")
 
+        def handle_quick_save(new_title: str, new_lang: str, new_tags: str):
+            print(f"DEBUG: Быстрое сохранение: {new_title}, tags={new_tags}")
+            db.update_snippet(snippet_id, new_title, new_lang, cells, new_tags)
+            refresh_list(snippets_grid, search_field)
+            page.dialog.open = False
+            page.update()
 
-    # Create layout
-    page.add(
-        ft.Column(
-            controls=[
-                ft.Row(
-                    controls=[
-                        search_field,
-                        ft.ElevatedButton(
-                            "Добавить сниппет",
-                            icon="add",
-                            on_click=handle_add_snippet,
-                            bgcolor="blue"
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-                ),
-                ft.Divider(),
-                ft.Container(
-                    content=snippets_grid,
-                    expand=True
-                )
-            ],
-            expand=True
-        )
-    )
+        def handle_full_edit():
+            print("DEBUG: Переход к полному редактированию")
+            page.dialog.open = False
+            switch_mode_func("edit", snippet_id)
+            page.update()
 
-    # Load initial snippets
-    load_snippets()
+        def handle_cancel():
+            print("DEBUG: Отмена диалога редактирования")
+            page.dialog.open = False
+            page.update()
 
-    print("=== ИНТЕРФЕЙС СОЗДАН, ГОТОВ К РАБОТЕ ===")
-
+        dialog = EditSnippetDialog(on_quick_save=handle_quick_save, on_full_edit=handle_full_edit, on_cancel=handle_cancel)
+        dialog.open(page, snippet_id, title, language, cells, tags)
 
 if __name__ == "__main__":
+    print("DEBUG: Запуск приложения")
     ft.app(target=main)

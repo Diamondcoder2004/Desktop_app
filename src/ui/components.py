@@ -1,36 +1,29 @@
 import flet as ft
-from flet import icons
+from flet import icons  # Импорт icons для исправления NameError
 from typing import List, Dict, Any, Callable
-from src.models.database import Snippet
 
-
-class CellEditor(ft.Control):
-    """A component for editing a single content cell (code, text, or image)"""
-    
-    def __init__(self, cell_data: Dict[str, Any] = None, on_delete=None):
+class CellEditor(ft.UserControl):
+    def __init__(self, cell_data: Dict[str, Any] = None, on_delete: Callable = None, on_change: Callable = None):
         super().__init__()
         self.cell_data = cell_data or {'type': 'text', 'content': ''}
         self.on_delete = on_delete
-        self.content_field = None
-        self.language_dropdown = None
-        self.type_dropdown = None
+        self.on_change = on_change
+        self.preview = ft.Container()
         self._build_components()
 
     def _build_components(self):
-        """Build the UI components for the cell editor"""
-        # Type selection dropdown
         self.type_dropdown = ft.Dropdown(
             value=self.cell_data['type'],
             options=[
                 ft.dropdown.Option("text", "Текст"),
                 ft.dropdown.Option("code", "Код"),
+                ft.dropdown.Option("markdown", "Markdown"),
                 ft.dropdown.Option("image", "Изображение"),
             ],
             on_change=self._on_type_change,
             width=120
         )
-        
-        # Content field based on type
+
         if self.cell_data['type'] == 'code':
             self.language_dropdown = ft.Dropdown(
                 value=self.cell_data.get('language', 'python'),
@@ -47,7 +40,8 @@ class CellEditor(ft.Control):
                     ft.dropdown.Option("c++", "C++"),
                     ft.dropdown.Option("java", "Java"),
                 ],
-                width=150
+                width=150,
+                on_change=self._update_preview
             )
             self.content_field = ft.TextField(
                 value=self.cell_data['content'],
@@ -55,122 +49,105 @@ class CellEditor(ft.Control):
                 min_lines=3,
                 max_lines=10,
                 expand=True,
-                label="Код"
+                label="Код",
+                on_change=self._update_preview
             )
+        elif self.cell_data['type'] == 'markdown':
+            self.content_field = ft.TextField(
+                value=self.cell_data['content'],
+                multiline=True,
+                min_lines=3,
+                max_lines=10,
+                expand=True,
+                label="Markdown",
+                on_change=self._update_preview
+            )
+            self.language_dropdown = None
         elif self.cell_data['type'] == 'image':
             self.content_field = ft.TextField(
                 value=self.cell_data['content'],
                 expand=True,
-                label="Ссылка на изображение или путь к файлу"
+                label="URL или путь к изображению",
+                on_change=self._update_preview
             )
-        else:  # text
+            self.language_dropdown = None
+        else:
             self.content_field = ft.TextField(
                 value=self.cell_data['content'],
                 multiline=True,
                 min_lines=2,
                 max_lines=5,
                 expand=True,
-                label="Текст"
+                label="Текст",
+                on_change=self._update_preview
             )
-        
-        # Delete button
-        delete_btn = ft.IconButton(
-            icon=icons.DELETE,
-            tooltip="Удалить ячейку",
-            on_click=self._on_delete_click
-        )
-        
-        # Main row layout
-        self.main_row = ft.Row([
-            self.type_dropdown,
-            ft.Container(width=10),  # Spacer
-            self.language_dropdown if self.language_dropdown else ft.Container(width=0, height=0),
-            ft.Container(width=10) if self.language_dropdown else ft.Container(width=0, height=0),
-            self.content_field,
-            ft.Container(width=10),  # Spacer
-            delete_btn
-        ], vertical_alignment=ft.CrossAxisAlignment.START)
+            self.language_dropdown = None
+
+        delete_btn = ft.IconButton(icons.DELETE, tooltip="Удалить ячейку", on_click=lambda e: self.on_delete(self))
+
+        self.preview = self._build_preview()
+
+        self.content = ft.Column([
+            ft.Row([
+                self.type_dropdown,
+                self.language_dropdown if self.language_dropdown else ft.Container(),
+                self.content_field,
+                delete_btn
+            ]),
+            ft.Divider(),
+            self.preview
+        ])
+
+    def _build_preview(self) -> ft.Container:
+        ctype = self.cell_data['type']
+        content = self.content_field.value if self.content_field else ""
+        if ctype == 'code':
+            lang = self.language_dropdown.value if self.language_dropdown else "python"
+            md_code = f"```{lang}\n{content}\n```"
+            return ft.Markdown(md_code, code_theme="atom-one-dark", selectable=True)
+        elif ctype == 'markdown':
+            return ft.Markdown(content, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, selectable=True)
+        elif ctype == 'image':
+            return ft.Image(src=content, width=200, height=200, fit=ft.ImageFit.CONTAIN, error_content=ft.Text("Неверное изображение"))
+        else:
+            return ft.Text(content)
+        return ft.Container()
 
     def _on_type_change(self, e):
-        """Handle type change - rebuild content field"""
-        old_content = self.content_field.value if self.content_field else ""
-        
-        # Clear the current content field
-        self.content_field = None
-        if self.language_dropdown:
-            self.language_dropdown = None
-        
-        # Update cell type
         self.cell_data['type'] = e.control.value
-        
-        # Rebuild components based on new type
         self._build_components()
-        
-        # Update the main row
-        self.main_row.controls = [
-            self.type_dropdown,
-            ft.Container(width=10),
-            self.language_dropdown if self.language_dropdown else ft.Container(width=0, height=0),
-            ft.Container(width=10) if self.language_dropdown else ft.Container(width=0, height=0),
-            self.content_field,
-            ft.Container(width=10),
-            ft.IconButton(
-                icon=icons.DELETE,
-                tooltip="Удалить ячейку",
-                on_click=self._on_delete_click
-            )
-        ]
-        
-        # Restore the old content
-        self.content_field.value = old_content
         self.update()
 
-    def _on_delete_click(self, e):
-        """Handle delete button click"""
-        if self.on_delete:
-            self.on_delete(self)
+    def _update_preview(self, e):
+        self.preview = self._build_preview()
+        if self.on_change:
+            self.on_change()
+        self.update()
 
-    def build(self):
-        return self.main_row
-    
     def get_cell_data(self) -> Dict[str, Any]:
-        """Get the current cell data"""
         cell = {
             'type': self.type_dropdown.value,
             'content': self.content_field.value
         }
-        
-        if self.type_dropdown.value == 'code' and self.language_dropdown:
+        if self.language_dropdown:
             cell['language'] = self.language_dropdown.value
-        
         return cell
 
-
-class SnippetEditor(ft.Control):
-    """A component for editing a complete snippet with multiple cells"""
-    
-    def __init__(self, snippet: Snippet = None, on_save=None, on_cancel=None):
+class SnippetEditor(ft.UserControl):
+    def __init__(self, snippet: Dict = None, on_save: Callable = None, on_cancel: Callable = None):
         super().__init__()
-        self.snippet = snippet or Snippet(id=None, title="", language="python", cells=[])
+        self.snippet = snippet or {'id': None, 'title': "", 'language': "python", 'cells': [], 'tags': ""}
         self.on_save = on_save
         self.on_cancel = on_cancel
-        self.title_field = None
-        self.language_dropdown = None
-        self.cells_list = ft.Column()
-        self.cell_editors = []
+        self.cell_editors: List[CellEditor] = []
+        self.cells_list = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
+        self._build_components()
 
     def _build_components(self):
-        """Build the UI components for the snippet editor"""
-        # Title field
-        self.title_field = ft.TextField(
-            value=self.snippet.title,
-            label="Название сниппета",
-            width=400
-        )
-        
-        # Language dropdown
+        print("DEBUG: Построение компонентов SnippetEditor")
+        self.title_field = ft.TextField(value=self.snippet['title'], label="Название", width=400)
         self.language_dropdown = ft.Dropdown(
-            value=self.snippet.language,
+            value=self.snippet['language'],
             label="Основной язык",
             width=400,
             options=[
@@ -187,81 +164,61 @@ class SnippetEditor(ft.Control):
                 ft.dropdown.Option("java", "Java"),
             ]
         )
-        
-        # Add cell button
-        add_cell_btn = ft.ElevatedButton(
-            "Добавить ячейку",
-            icon=icons.ADD,
-            on_click=self._add_cell
-        )
-        
-        # Save and cancel buttons
-        save_btn = ft.ElevatedButton("Сохранить", on_click=self._on_save_click)
-        cancel_btn = ft.ElevatedButton("Отмена", on_click=self._on_cancel_click)
-        
-        # Initialize with existing cells
-        for cell_data in self.snippet.cells:
-            self._add_cell_editor(cell_data)
+        self.tags_field = ft.TextField(value=self.snippet['tags'], label="Теги (через запятую)", width=400)
 
-    def _add_cell_editor(self, cell_data: Dict[str, Any] = None):
-        """Add a new cell editor to the list"""
-        cell_editor = CellEditor(
-            cell_data=cell_data,
-            on_delete=self._remove_cell_editor
-        )
-        self.cell_editors.append(cell_editor)
-        self.cells_list.controls.append(cell_editor)
-        self.update()
+        add_cell_btn = ft.ElevatedButton("Добавить ячейку", icon=icons.ADD, on_click=self._add_cell)
+
+        save_btn = ft.ElevatedButton("Сохранить", on_click=self._on_save_click)
+        cancel_btn = ft.TextButton("Назад", on_click=self._on_cancel_click)
+
+        for cell in self.snippet['cells']:
+            self._add_cell_editor(cell)
+
+        self.content = ft.Column([
+            ft.Text("Редактирование сниппета", size=20, weight=ft.FontWeight.BOLD),
+            self.title_field,
+            self.language_dropdown,
+            self.tags_field,
+            ft.Divider(),
+            ft.Text("Ячейки содержимого:"),
+            self.cells_list,
+            ft.Row([add_cell_btn, save_btn, cancel_btn])
+        ], scroll=ft.ScrollMode.AUTO, expand=True)
 
     def _add_cell(self, e):
-        """Add a new empty cell"""
+        print("DEBUG: Добавление новой ячейки")
         self._add_cell_editor({'type': 'text', 'content': ''})
 
-    def _remove_cell_editor(self, cell_editor):
-        """Remove a cell editor from the list"""
-        if cell_editor in self.cell_editors:
-            self.cell_editors.remove(cell_editor)
-            self.cells_list.controls.remove(cell_editor)
+    def _add_cell_editor(self, cell_data: Dict):
+        print("DEBUG: Добавление редактора ячейки")
+        editor = CellEditor(cell_data=cell_data, on_delete=self._remove_cell_editor, on_change=self.update)
+        self.cell_editors.append(editor)
+        self.cells_list.controls.append(editor)
+        self.update()
+
+    def _remove_cell_editor(self, editor: CellEditor):
+        print("DEBUG: Удаление редактора ячейки")
+        if editor in self.cell_editors:
+            self.cell_editors.remove(editor)
+            self.cells_list.controls.remove(editor)
             self.update()
 
     def _on_save_click(self, e):
-        """Handle save button click"""
+        print("DEBUG: Обработка сохранения в SnippetEditor")
         if self.on_save:
-            # Collect all cell data
-            cells = []
-            for editor in self.cell_editors:
-                cells.append(editor.get_cell_data())
-            
-            # Create updated snippet
-            updated_snippet = Snippet(
-                id=self.snippet.id,
-                title=self.title_field.value,
-                language=self.language_dropdown.value,
-                cells=cells
-            )
-            self.on_save(updated_snippet)
+            self.on_save(self.get_snippet_data())
 
     def _on_cancel_click(self, e):
-        """Handle cancel button click"""
+        print("DEBUG: Обработка отмены в SnippetEditor")
         if self.on_cancel:
             self.on_cancel()
 
-    def build(self):
-        self._build_components()
-        
-        return ft.Column([
-            ft.Text("Редактирование сниппета", size=20, weight=ft.FontWeight.BOLD),
-            ft.Divider(),
-            self.title_field,
-            self.language_dropdown,
-            ft.Divider(),
-            ft.Text("Ячейки содержимого:", weight=ft.FontWeight.BOLD),
-            self.cells_list,
-            ft.Divider(),
-            ft.Row([self._add_cell_btn(), ft.ElevatedButton("Сохранить", on_click=self._on_save_click), 
-                   ft.ElevatedButton("Отмена", on_click=self._on_cancel_click)])
-        ], scroll=ft.ScrollMode.AUTO)
-
-    def _add_cell_btn(self):
-        """Create add cell button with proper binding"""
-        return ft.ElevatedButton("Добавить ячейку", icon=icons.ADD, on_click=self._add_cell)
+    def get_snippet_data(self) -> Dict:
+        cells = [editor.get_cell_data() for editor in self.cell_editors]
+        return {
+            'id': self.snippet['id'],
+            'title': self.title_field.value,
+            'language': self.language_dropdown.value,
+            'cells': cells,
+            'tags': self.tags_field.value
+        }
