@@ -54,7 +54,7 @@ class CodeEditor:
         """Создание UI компонента"""
         # Кнопки переключения режима
         self.toggle_button = ft.IconButton(
-            icon=ft.icons.CODE_OUTLINED,
+            icon=ft.Icons.CODE_OUTLINED,
             tooltip="Режим редактирования",
             on_click=self._toggle_view_mode
         )
@@ -62,7 +62,7 @@ class CodeEditor:
         # Основной контейнер
         self.editor_container = ft.Container(
             content=self.text_field,
-            border=ft.border.all(1, ft.colors.OUTLINE),
+            border=ft.border.all(1, ft.colors.outline),
             border_radius=5,
             padding=5,
             expand=True
@@ -88,13 +88,13 @@ class CodeEditor:
             # Переключаемся в режим просмотра
             self.code_view.value = self.text_field.value
             self.editor_container.content = self.code_view
-            self.toggle_button.icon = ft.icons.EDIT_OUTLINED
+            self.toggle_button.icon = ft.Icons.EDIT_OUTLINED
             self.toggle_button.tooltip = "Режим редактирования"
             self.view_mode = "preview"
         else:
             # Переключаемся в режим редактирования
             self.editor_container.content = self.text_field
-            self.toggle_button.icon = ft.icons.CODE_OUTLINED
+            self.toggle_button.icon = ft.Icons.CODE_OUTLINED
             self.toggle_button.tooltip = "Режим просмотра"
             self.view_mode = "edit"
 
@@ -133,14 +133,14 @@ class MultiCellEditor:
         self.cells = cells or []
         self.on_change = on_change
         self.cell_widgets = []
-        self.column = None  # Will be initialized in build()
+        self.column = ft.Column()
 
     def build(self):
         """Build the control."""
-        self.column = ft.Column()
-
-        # Инициализация колонки с ячейками
+        # Очищаем текущие контролы
         self.column.controls = []
+        
+        # Инициализация колонки с ячейками
         for cell in self.cells:
             self._add_cell_to_column(cell)
 
@@ -148,7 +148,7 @@ class MultiCellEditor:
         self.column.controls.append(
             ft.ElevatedButton(
                 "Добавить ячейку",
-                icon=ft.icons.ADD_OUTLINED,
+                icon=ft.Icons.ADD_OUTLINED,
                 on_click=self._add_cell,
             )
         )
@@ -186,22 +186,21 @@ class MultiCellEditor:
                 text_field
             ]),
             padding=10,
-            border=ft.border.all(1, ft.colors.OUTLINE),
+            border=ft.border.all(1, ft.colors.outline),
             border_radius=5,
             margin=ft.margin.only(bottom=10),
         )
 
         # Кнопка удаления ячейки
         delete_button = ft.IconButton(
-            icon=ft.icons.DELETE_OUTLINE,
-            icon_color=ft.colors.ERROR,
+            icon=ft.Icons.DELETE_OUTLINE,
+            icon_color=ft.colors.error,
             tooltip="Удалить ячейку",
         )
 
-        def on_delete_click(e, idx=len(self.cell_widgets)):
-            self._remove_cell(idx)
-
-        delete_button.on_click = on_delete_click
+        # Store the index when creating the delete handler
+        current_index = len(self.cell_widgets)
+        delete_button.on_click = lambda e, idx=current_index: self._remove_cell(idx)
 
         cell_container = ft.Row(
             controls=[
@@ -236,8 +235,8 @@ class MultiCellEditor:
             self.cells.pop(index)
 
             # Удаляем виджет из column.controls
-            # (минус 1 для учета кнопки добавления в конце)
-            if index < len(self.column.controls) - 1:
+            # Нужно найти правильный индекс в controls, учитывая что последний элемент - кнопка добавления
+            if index < len(self.column.controls) - 1:  # -1 because last control is the add button
                 self.column.controls.pop(index)
 
             # Обновляем cell_widgets
@@ -278,7 +277,7 @@ class MultiCellEditor:
             self.column.controls.append(
                 ft.ElevatedButton(
                     "Добавить ячейку",
-                    icon=ft.icons.ADD_OUTLINED,
+                    icon=ft.Icons.ADD_OUTLINED,
                     on_click=self._add_cell,
                 )
             )

@@ -31,7 +31,8 @@ class AddSnippetDialog:
             value="python"
         )
         self.tags_field = ft.TextField(label="Теги (через запятую)", width=400)
-        self.cells = [{"type": "code", "content": ""}]
+        self.cells = [{"type": "code", "content": ""}]  # Default with one empty code cell
+        self.cells_editor = MultiCellEditor()  # Create MultiCellEditor instance
 
         self.dialog = ft.AlertDialog(
             modal=True,
@@ -40,7 +41,10 @@ class AddSnippetDialog:
                 self.title_field,
                 self.lang_field,
                 self.tags_field,
-            ], scroll=ft.ScrollMode.AUTO, width=500, height=300),
+                ft.Divider(),
+                ft.Text("Ячейки кода:", weight=ft.FontWeight.BOLD),
+                ft.Container(content=self.cells_editor.build(), height=300, expand=True),
+            ], scroll=ft.ScrollMode.AUTO, width=600, height=600),
             actions=[
                 ft.TextButton("Отмена", on_click=self._handle_cancel),
                 ft.ElevatedButton("Сохранить", on_click=self._handle_submit),
@@ -53,7 +57,9 @@ class AddSnippetDialog:
             snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название!"))
             e.page.show_snack_bar(snack_bar)
             return
-        self.on_submit(self.title_field.value, self.lang_field.value or "python", self.cells, self.tags_field.value)
+        # Get updated cells from the editor
+        updated_cells = self.cells_editor.get_cells()
+        self.on_submit(self.title_field.value, self.lang_field.value or "python", updated_cells, self.tags_field.value)
 
     def _handle_cancel(self, e):
         print("DEBUG: Обработка cancel в диалоге добавления")
@@ -101,8 +107,9 @@ class EditSnippetDialog:
                 self.lang_field,
                 self.tags_field,
                 ft.Divider(),
-                ft.Container(content=self.cells_editor.build(), height=200, expand=True),  # Небольшое окно для cells
-            ], scroll=ft.ScrollMode.AUTO, width=500, height=500),
+                ft.Text("Ячейки кода:", weight=ft.FontWeight.BOLD),
+                ft.Container(content=self.cells_editor.build(), height=350, expand=True),
+            ], scroll=ft.ScrollMode.AUTO, width=600, height=650),
             actions=[
                 ft.TextButton("Отмена", on_click=self._handle_cancel),
                 ft.ElevatedButton("Сохранить", on_click=self._handle_quick_save),
