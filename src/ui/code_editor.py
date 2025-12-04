@@ -126,14 +126,14 @@ class CodeEditor:
 from typing import List, Dict, Callable, Optional
 
 
-class MultiCellEditor(ft.UserControl):
+class MultiCellEditor:
     """Редактор для нескольких ячеек кода."""
 
     def __init__(self, cells: Optional[List[Dict]] = None, on_change: Optional[Callable] = None):
-        super().__init__()
         self.cells = cells or []
         self.on_change = on_change
         self.cell_widgets = []
+        self.column = None  # Will be initialized in build()
 
     def build(self):
         """Build the control."""
@@ -226,13 +226,6 @@ class MultiCellEditor(ft.UserControl):
         self.cells.append(new_cell)
         self._add_cell_to_column(new_cell)
 
-        # Проверяем, добавлен ли контрол на страницу
-        try:
-            self.update()
-        except AssertionError:
-            # Если не добавлен на страницу (тест режим), просто пропускаем
-            pass
-
         if self.on_change:
             self.on_change(self.cells)
 
@@ -260,8 +253,6 @@ class MultiCellEditor(ft.UserControl):
                 delete_btn = cell_data['container'].controls[1]  # 0 - content, 1 - delete button
                 delete_btn.on_click = make_delete_handler(i)
 
-            self.update()
-
             if self.on_change:
                 self.on_change(self.cells)
 
@@ -275,19 +266,19 @@ class MultiCellEditor(ft.UserControl):
         self.cell_widgets = []
 
         # Очищаем текущие контролы
-        self.column.controls.clear()
+        if self.column:
+            self.column.controls.clear()
 
         # Добавляем все ячейки
         for cell in self.cells:
             self._add_cell_to_column(cell)
 
         # Добавляем кнопку добавления
-        self.column.controls.append(
-            ft.ElevatedButton(
-                "Добавить ячейку",
-                icon=ft.icons.ADD_OUTLINED,
-                on_click=self._add_cell,
+        if self.column:
+            self.column.controls.append(
+                ft.ElevatedButton(
+                    "Добавить ячейку",
+                    icon=ft.icons.ADD_OUTLINED,
+                    on_click=self._add_cell,
+                )
             )
-        )
-
-        self.update()
