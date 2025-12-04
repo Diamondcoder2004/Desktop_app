@@ -16,7 +16,7 @@ class MainView(ft.Column):
         # Search field
         self.search_field = ft.TextField(
             label="Поиск по названию или языку",
-            prefix_icon=ft.Icons.SEARCH,
+            prefix_icon=ft.icons.SEARCH,
             on_change=self._handle_search,
             expand=True
         )
@@ -45,7 +45,7 @@ class MainView(ft.Column):
                     self.search_field,
                     ft.ElevatedButton(
                         "Добавить сниппет",
-                        icon=ft.Icons.ADD,
+                        icon=ft.icons.ADD,
                         on_click=self._handle_add_snippet
                     )
                 ],
@@ -64,12 +64,11 @@ class MainView(ft.Column):
 
         snippets = self.db.get_snippets(search_query)
         for snippet in snippets:
-            snippet_id, title, language, code = snippet
             card = SnippetCard(
-                snippet_id=snippet_id,
-                title=title,
-                language=language,
-                code=code,
+                snippet_id=snippet["id"],
+                title=snippet["title"],
+                language=snippet["language"],
+                cells=snippet["cells"],
                 on_copy=self._handle_copy,
                 on_delete=self._handle_delete,
                 on_edit=self._handle_edit
@@ -85,8 +84,8 @@ class MainView(ft.Column):
     def _handle_add_snippet(self, e):
         """Handle add snippet button click."""
 
-        def on_submit(title: str, language: str, code: str):
-            self.db.add_snippet(title, language, code)
+        def on_submit(title: str, language: str, cells: list, tags: str):
+            self.db.add_snippet(title, language, cells, tags)
             dialog.close(self.page)
             self._load_snippets()
 
@@ -132,11 +131,11 @@ class MainView(ft.Column):
         dialog.open = True
         self.page.update()
 
-    def _handle_edit(self, snippet_id: int, title: str, language: str, code: str):
+    def _handle_edit(self, snippet_id: int, title: str, language: str, cells: list):
         """Handle edit button click."""
 
-        def on_submit(s_id: int, new_title: str, new_language: str, new_code: str):
-            self.db.update_snippet(s_id, new_title, new_language, new_code)
+        def on_submit(s_id: int, new_title: str, new_language: str, new_cells: list, tags: str):
+            self.db.update_snippet(s_id, new_title, new_language, new_cells, tags)
             dialog.close(self.page)
             self._load_snippets(self.search_field.value)
 
@@ -144,4 +143,4 @@ class MainView(ft.Column):
             dialog.close(self.page)
 
         dialog = EditSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        dialog.open(self.page, snippet_id, title, language, code)
+        dialog.open(self.page, snippet_id, title, language, cells)

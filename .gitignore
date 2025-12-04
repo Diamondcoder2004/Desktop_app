@@ -1,4 +1,34 @@
 ```
-__pycache__/
+# Compiled Python files
 *.pyc
+__pycache__/
+
+# Virtual environments
+venv/
+.venv/
+.env
+*.env
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Build/dist directories
+build/
+dist/
+target/
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# Python cache
+.mypy_cache/
+.pytest_cache/
 ```

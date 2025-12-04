@@ -174,9 +174,9 @@ def main(page: ft.Page):
     def open_edit_dialog(page: ft.Page, db: Database, snippet_id: int, title: str, language: str, cells: list, tags: str, switch_mode_func):
         print(f"DEBUG: Открытие диалога редактирования для {snippet_id}")
 
-        def handle_quick_save(new_title: str, new_lang: str, new_tags: str):
+        def handle_submit(updated_id: int, new_title: str, new_lang: str, new_cells: list, new_tags: str):
             print(f"DEBUG: Быстрое сохранение: {new_title}, tags={new_tags}")
-            db.update_snippet(snippet_id, new_title, new_lang, cells, new_tags)
+            db.update_snippet(updated_id, new_title, new_lang, new_cells, new_tags)
             refresh_list(snippets_grid, search_field)
             page.dialog.open = False
             page.update()
@@ -192,7 +192,7 @@ def main(page: ft.Page):
             page.dialog.open = False
             page.update()
 
-        dialog = EditSnippetDialog(on_quick_save=handle_quick_save, on_full_edit=handle_full_edit, on_cancel=handle_cancel)
+        dialog = EditSnippetDialog(on_submit=handle_submit, on_full_edit=handle_full_edit, on_cancel=handle_cancel)
         dialog.open(page, snippet_id, title, language, cells, tags)
 
 if __name__ == "__main__":

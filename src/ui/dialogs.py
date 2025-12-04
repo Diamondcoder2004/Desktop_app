@@ -66,9 +66,9 @@ class AddSnippetDialog:
         self.on_cancel()
 
 class EditSnippetDialog:
-    def __init__(self, on_quick_save: Callable[[str, str, str], None], on_full_edit: Callable[[], None], on_cancel: Callable[[], None]):
+    def __init__(self, on_submit: Callable[[int, str, str, list, str], None], on_full_edit: Callable[[], None], on_cancel: Callable[[], None]):
         print("DEBUG: Инициализация EditSnippetDialog")
-        self.on_quick_save = on_quick_save
+        self.on_submit = on_submit
         self.on_full_edit = on_full_edit
         self.on_cancel = on_cancel
         self.snippet_id = None
@@ -136,7 +136,7 @@ class EditSnippetDialog:
             e.page.show_snack_bar(snack_bar)
             return
         new_cells = self.cells_editor.get_cells()  # Получаем обновлённые cells
-        self.on_quick_save(self.title_field.value, self.lang_field.value or "python", self.tags_field.value, new_cells)  # Добавляем new_cells в вызов
+        self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", new_cells, self.tags_field.value)
 
     def _handle_full_edit(self, e):
         print("DEBUG: Обработка full edit в диалоге редактирования")
