@@ -100,14 +100,17 @@ services:
 
 
 def main(page: ft.Page):
+    """Main entry point."""
+    print("=== ПРИЛОЖЕНИЕ ЗАПУЩЕНО ===")
+    page.scroll = ft.ScrollMode.AUTO
+    # Очищаем overlay при запуске
+    page.overlay.clear()
     # Page setup
     page.title = "CodeSnippet Hub - Multi-cell"
     page.theme_mode = ft.ThemeMode.DARK
     page.window.width = 1200
     page.window.height = 800
     page.padding = 20
-
-    print("=== ПРИЛОЖЕНИЕ ЗАПУЩЕНО ===")
     print(f"DEBUG: Page object created with {len(page.controls) if page.controls else 0} initial controls")
 
     # Initialize database
@@ -138,32 +141,56 @@ def main(page: ft.Page):
 
     # Functions
     def load_snippets(search_query: str = ""):
-        """Load snippets from database."""
+        """Load snippets from database and display them."""
         print(f"DEBUG: load_snippets called with search_query: '{search_query}'")
-        snippets_grid.controls.clear()
-        
-        print("DEBUG: Fetching snippets from database...")
-        snippets = db.get_snippets(search_query)
-        print(f"DEBUG: Loaded {len(snippets)} snippets from database")
 
-        for snippet in snippets:
-            snippet_id, title, language, cells, tags = snippet
-            print(f"DEBUG: Creating card for snippet: {title} (ID: {snippet_id})")
-            
-            card = SnippetCard(
-                snippet_id=snippet_id,
-                title=title,
-                language=language,
-                cells=cells,
-                on_copy=handle_copy,
-                on_delete=handle_delete,
-                on_edit=handle_edit
+        try:
+            print("DEBUG: Fetching snippets from database...")
+            snippets = db.get_snippets(search_query)
+            print(f"DEBUG: Loaded {len(snippets)} snippets from database")
+
+            # Очищаем текущие карточки
+            snippets_grid.controls.clear()
+
+            # Создаем новые карточки
+            for snippet in snippets:
+                snippet_id, title, language, cells = snippet
+                print(f"DEBUG: Creating card for snippet: {title} (ID: {snippet_id})")
+                card = SnippetCard(
+                    snippet_id=snippet_id,
+                    title=title,
+                    language=language,
+                    cells=cells,
+                    on_copy=handle_copy,
+                    on_delete=handle_delete,
+                    on_edit=handle_edit,
+                    expand=True
+                )
+                snippets_grid.controls.append(card)
+
+            print(f"DEBUG: Updated snippets grid with {len(snippets_grid.controls)} cards")
+
+            # Перерисовываем GridView
+            snippets_grid.update()
+
+            # Обновляем страницу
+            page.update()
+            print("DEBUG: Page updated successfully")
+
+        except Exception as e:
+            print(f"DEBUG: Error in load_snippets: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # Показываем ошибку
+            page.snack_bar = None
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text(f"Ошибка при загрузке сниппетов: {e}"),
+                duration=5000
             )
-            snippets_grid.controls.append(card)
-        
-        print(f"DEBUG: Updated snippets grid with {len(snippets_grid.controls)} cards")
-        page.update()
-        print("DEBUG: Page updated successfully")
+            page.snack_bar.open = True
+            page.update()
+
 
     def handle_search(e):
         """Handle search field changes."""
@@ -204,6 +231,8 @@ def main(page: ft.Page):
         def on_submit(title: str, language: str, cells: list):
             print(f"DEBUG: on_submit called - title: {title}, language: {language}")
             print(f"DEBUG: Number of cells: {len(cells)}")
+            for i, cell in enumerate(cells):
+                print(f"DEBUG: Cell {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} chars")
 
             try:
                 print("DEBUG: Adding snippet to database...")
@@ -218,11 +247,16 @@ def main(page: ft.Page):
                 print("DEBUG: Reloading snippets...")
                 load_snippets(search_field.value)
 
-                # Показываем уведомление
+                # Показываем уведомление - ИСПРАВЛЕНО
                 print("DEBUG: Showing success notification...")
-                snack_bar = ft.SnackBar(ft.Text(f"Сниппет '{title}' добавлен!"))
-                page.overlay.append(snack_bar)
-                snack_bar.open = True
+                # Удаляем старый снекбар, если есть
+                page.snack_bar = None
+                # Создаем новый снекбар
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Сниппет '{title}' добавлен!"),
+                    duration=3000
+                )
+                page.snack_bar.open = True
                 page.update()
                 print("DEBUG: Add snippet operation completed successfully")
 
@@ -230,11 +264,15 @@ def main(page: ft.Page):
                 print(f"DEBUG: Error in on_submit: {ex}")
                 import traceback
                 traceback.print_exc()
-                snack_bar = ft.SnackBar(ft.Text(f"Ошибка: {ex}"))
-                page.overlay.append(snack_bar)
-                snack_bar.open = True
+                # Удаляем старый снекбар, если есть
+                page.snack_bar = None
+                # Создаем новый снекбар с ошибкой
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Ошибка: {ex}"),
+                    duration=5000
+                )
+                page.snack_bar.open = True
                 page.update()
-
         def on_cancel():
             print("DEBUG: Dialog cancelled by user")
             dialog.close(page)
@@ -245,46 +283,84 @@ def main(page: ft.Page):
         dialog.open(page)
         print("DEBUG: Dialog opened successfully")
 
-    def handle_copy(yaml_content: str):
+    def handle_copy(content: str):
         """Handle copy button click."""
-        print(f"DEBUG: handle_copy called with content length: {len(yaml_content) if yaml_content else 0}")
+        print(f"DEBUG: handle_copy called with content length: {len(content)}")
+
         try:
-            pyperclip.copy(yaml_content)
+            import pyperclip
+            pyperclip.copy(content)
             print("DEBUG: Content copied to clipboard successfully")
-            snack_bar = ft.SnackBar(ft.Text("YAML содержимое скопировано в буфер!"))
-            page.overlay.append(snack_bar)
-            snack_bar.open = True
+
+            # Показываем уведомление
+            page.snack_bar = None
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text("Сниппет скопирован в буфер обмена!"),
+                duration=2000
+            )
+            page.snack_bar.open = True
             page.update()
             print("DEBUG: Copy operation completed successfully")
+
         except Exception as e:
-            print(f"DEBUG: Error in handle_copy: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def handle_delete(snippet_id: int):
-        """Handle delete confirmation."""
-        print(f"DEBUG: Confirming deletion of snippet {snippet_id}")
-
-        def on_confirm(e):
-            print(f"DEBUG: Deleting snippet {snippet_id}...")
-            db.delete_snippet(snippet_id)
-            print(f"DEBUG: Snippet {snippet_id} deleted from database")
-
-            # Закрываем диалог
-            confirm_dialog.open = False
-            page.overlay.remove(confirm_dialog)
+            print(f"DEBUG: Error copying to clipboard: {e}")
+            page.snack_bar = None
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text(f"Ошибка при копировании: {e}"),
+                duration=5000
+            )
+            page.snack_bar.open = True
             page.update()
 
-            # Перезагружаем список
-            load_snippets(search_field.value)
-            print("DEBUG: Snippets reloaded after deletion")
+            
+    def handle_delete(snippet_id: int):
+        """Handle delete button click."""
+        print(f"DEBUG: handle_delete called for snippet_id: {snippet_id}")
+
+        def on_confirm(e):
+            print(f"DEBUG: Confirming deletion of snippet {snippet_id}")
+
+            try:
+                db.delete_snippet(snippet_id)
+                print(f"DEBUG: Snippet {snippet_id} deleted from database")
+
+                # Закрываем диалог
+                confirm_dialog.open = False
+                if confirm_dialog in page.overlay:
+                    page.overlay.remove(confirm_dialog)
+                page.update()
+
+                # Перезагружаем список
+                load_snippets(search_field.value)
+                print("DEBUG: Snippets reloaded after deletion")
+
+                # Показываем уведомление
+                page.snack_bar = None
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Сниппет удален!"),
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                page.update()
+
+            except Exception as ex:
+                print(f"DEBUG: Error deleting snippet: {ex}")
+                page.snack_bar = None
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Ошибка при удалении: {ex}"),
+                    duration=5000
+                )
+                page.snack_bar.open = True
+                page.update()
 
         def on_cancel(e):
             print(f"DEBUG: Deletion cancelled for snippet {snippet_id}")
             confirm_dialog.open = False
-            page.overlay.remove(confirm_dialog)
+            if confirm_dialog in page.overlay:
+                page.overlay.remove(confirm_dialog)
             page.update()
 
+        print(f"DEBUG: Creating confirmation dialog for snippet {snippet_id}")
         confirm_dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Подтверждение удаления"),
@@ -295,9 +371,13 @@ def main(page: ft.Page):
             ],
         )
 
+        # Очищаем overlay перед добавлением нового диалога
+        page.overlay.clear()
         page.overlay.append(confirm_dialog)
         confirm_dialog.open = True
         page.update()
+        print(f"DEBUG: Delete confirmation dialog opened for snippet {snippet_id}")
+
 
 
     def handle_edit(snippet_id: int, title: str, language: str, cells: list):

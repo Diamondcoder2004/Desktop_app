@@ -9,8 +9,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
-    from ui.code_editor import MultiCellEditor
-    from ui.dialogs import AddSnippetDialog, EditSnippetDialog
+    from src.ui.code_editor import MultiCellEditor
+    from src.ui.dialogs import AddSnippetDialog, EditSnippetDialog
     print("✓ All imports successful")
 except Exception as e:
     print(f"✗ Import error: {e}")
@@ -36,9 +36,14 @@ def test_multicell_editor():
         print(f"✓ Build method works, returned: {type(container)}")
         
         # Test adding a cell
-        editor._add_cell(type('MockEvent', (), {'page': None})())
-        print(f"✓ Added cell, now has {len(editor.cells)} cells")
-        
+        new_cells = [
+            {"type": "code", "language": "python", "content": "print('test')"},
+            {"type": "text", "content": "Test text"}
+        ]
+        editor.load_cells(new_cells)
+        print(f"✓ Loaded {len(editor.get_cells())} cells via load_cells")
+
+
         # Test updating cells
         new_cells = [{"type": "code", "language": "javascript", "content": "console.log('test');"}]
         editor.update_cells(new_cells)
@@ -84,7 +89,7 @@ def test_search_functionality():
     print("\n=== Testing Search Functionality ===")
     
     try:
-        from models.database import Database
+        from src.models.database import Database
         import tempfile
         import os
         

@@ -1,7 +1,11 @@
 import flet as ft
 from typing import Callable, Optional
 import yaml
-from .code_editor import MultiCellEditor
+try:
+    from .code_editor import MultiCellEditor
+except ImportError:
+    from code_editor import MultiCellEditor
+
 
 
 class AddSnippetDialog:
@@ -113,9 +117,12 @@ class AddSnippetDialog:
         """Close the dialog."""
         print("DEBUG: AddSnippetDialog.close called")
         self.dialog.open = False
-        page.overlay.remove(self.dialog)
+        # ВАЖНО: проверяем, что диалог еще в overlay перед удалением
+        if self.dialog in page.overlay:
+            page.overlay.remove(self.dialog)
         page.update()
         print("DEBUG: AddSnippetDialog closed successfully")
+
 
     def clear_fields(self):
         """Clear all form fields."""
@@ -239,7 +246,9 @@ class EditSnippetDialog:
         """Close the dialog."""
         print("DEBUG: EditSnippetDialog.close called")
         self.dialog.open = False
-        page.overlay.remove(self.dialog)  # ВАЖНО: page.overlay.remove
+        # ВАЖНО: проверяем, что диалог еще в overlay перед удалением
+        if self.dialog in page.overlay:
+            page.overlay.remove(self.dialog)
         page.update()
         print("DEBUG: EditSnippetDialog closed successfully")
 

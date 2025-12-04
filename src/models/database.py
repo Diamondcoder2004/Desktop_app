@@ -2,15 +2,41 @@ import sqlite3
 from typing import List, Tuple, Optional
 import yaml
 
+import sqlite3
+import os
+from pathlib import Path
+from typing import List, Tuple, Optional
+import yaml
+
 
 class Database:
     """Class for handling database operations with SQLite."""
 
     def __init__(self, db_name: str = "snippets.db"):
-        self.db_name = db_name
-        self.conn = sqlite3.connect(db_name, check_same_thread=False)
+        # Определяем путь к базе данных
+        # Если запускаем из корня проекта, создаем в папке src
+        # Если запускаем из папки src, создаем там же
+        current_dir = Path(os.getcwd())
+        if current_dir.name == "src" or (current_dir / "src").exists():
+            # Уже в папке src или есть папка src
+            if current_dir.name == "src":
+                db_path = current_dir / db_name
+            else:
+                db_path = current_dir / "src" / db_name
+        else:
+            # В корне проекта, создаем в src
+            db_path = current_dir / "src" / db_name
+
+        # Создаем директорию если нужно
+        db_path.parent.mkdir(exist_ok=True)
+
+        self.db_name = str(db_path)
+        print(f"DEBUG: Database path: {self.db_name}")
+
+        self.conn = sqlite3.connect(self.db_name, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_table()
+
 
     def create_table(self):
         """Create the snippets table with rich_content for multi-cell snippets."""

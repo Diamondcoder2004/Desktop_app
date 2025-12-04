@@ -53,7 +53,8 @@ def test_database():
         print("✓ Database connection established")
         
         # Test adding a snippet
-        snippet_id = db.add_snippet("Test Title", "python", "print('Hello World')")
+        test_cells = [{"type": "code", "language": "python", "content": "print('Hello World')"}]
+        snippet_id = db.add_snippet("Test Title", "python", test_cells)
         print(f"✓ Snippet added with ID: {snippet_id}")
         
         # Test retrieving snippets
@@ -62,7 +63,8 @@ def test_database():
         
         # Test updating snippet
         if snippets:
-            db.update_snippet(snippet_id, "Updated Title", "javascript", "console.log('Hello');")
+            updated_cells = [{"type": "code", "language": "javascript", "content": "console.log('Hello');"}]
+            db.update_snippet(snippet_id, "Updated Title", "javascript", updated_cells)
             print("✓ Snippet updated successfully")
         
         # Test deleting snippet
