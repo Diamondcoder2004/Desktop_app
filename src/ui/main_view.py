@@ -16,7 +16,7 @@ class MainView(ft.Column):
         # Search field
         self.search_field = ft.TextField(
             label="Поиск по названию или языку",
-            prefix_icon=ft.icons.SEARCH,
+            prefix_icon=ft.Icons.SEARCH,
             on_change=self._handle_search,
             expand=True
         )
@@ -45,7 +45,7 @@ class MainView(ft.Column):
                     self.search_field,
                     ft.ElevatedButton(
                         "Добавить сниппет",
-                        icon=ft.icons.ADD,
+                        icon=ft.Icons.ADD,
                         on_click=self._handle_add_snippet
                     )
                 ],
