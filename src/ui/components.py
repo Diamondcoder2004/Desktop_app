@@ -133,9 +133,8 @@ class CellEditor(ft.UserControl):
             cell['language'] = self.language_dropdown.value
         return cell
 
-class SnippetEditor(ft.UserControl):
+class SnippetEditor:
     def __init__(self, snippet: Dict = None, on_save: Callable = None, on_cancel: Callable = None):
-        super().__init__()
         self.snippet = snippet or {'id': None, 'title': "", 'language': "python", 'cells': [], 'tags': ""}
         self.on_save = on_save
         self.on_cancel = on_cancel
@@ -191,17 +190,19 @@ class SnippetEditor(ft.UserControl):
 
     def _add_cell_editor(self, cell_data: Dict):
         print("DEBUG: Добавление редактора ячейки")
-        editor = CellEditor(cell_data=cell_data, on_delete=self._remove_cell_editor, on_change=self.update)
+        editor = CellEditor(cell_data=cell_data, on_delete=self._remove_cell_editor, on_change=lambda: None)
         self.cell_editors.append(editor)
         self.cells_list.controls.append(editor)
-        self.update()
+        # Note: We can't call self.update() here since we're not a UserControl anymore
+        # The caller will need to update the page
 
-    def _remove_cell_editor(self, editor: CellEditor):
+    def _remove_cell_editor(self, editor: 'CellEditor'):
         print("DEBUG: Удаление редактора ячейки")
         if editor in self.cell_editors:
             self.cell_editors.remove(editor)
             self.cells_list.controls.remove(editor)
-            self.update()
+            # Note: We can't call self.update() here since we're not a UserControl anymore
+            # The caller will need to update the page
 
     def _on_save_click(self, e):
         print("DEBUG: Обработка сохранения в SnippetEditor")
@@ -222,3 +223,7 @@ class SnippetEditor(ft.UserControl):
             'cells': cells,
             'tags': self.tags_field.value
         }
+    
+    def build(self):
+        """Return the content of the editor for display."""
+        return self.content
