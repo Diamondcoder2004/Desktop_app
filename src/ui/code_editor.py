@@ -54,7 +54,7 @@ class CodeEditor:
         """Создание UI компонента"""
         # Кнопки переключения режима
         self.toggle_button = ft.IconButton(
-            icon=ft.Icons.CODE_OUTLINED,
+            icon=ft.icons.CODE_OUTLINED,
             tooltip="Режим редактирования",
             on_click=self._toggle_view_mode
         )
@@ -62,7 +62,7 @@ class CodeEditor:
         # Основной контейнер
         self.editor_container = ft.Container(
             content=self.text_field,
-            border=ft.border.all(1, ft.colors.outline),
+            border=ft.border.all(1, ft.colors.GREY_400),
             border_radius=5,
             padding=5,
             expand=True
@@ -88,13 +88,13 @@ class CodeEditor:
             # Переключаемся в режим просмотра
             self.code_view.value = self.text_field.value
             self.editor_container.content = self.code_view
-            self.toggle_button.icon = ft.Icons.EDIT_OUTLINED
+            self.toggle_button.icon = ft.icons.EDIT_OUTLINED
             self.toggle_button.tooltip = "Режим редактирования"
             self.view_mode = "preview"
         else:
             # Переключаемся в режим редактирования
             self.editor_container.content = self.text_field
-            self.toggle_button.icon = ft.Icons.CODE_OUTLINED
+            self.toggle_button.icon = ft.icons.CODE_OUTLINED
             self.toggle_button.tooltip = "Режим просмотра"
             self.view_mode = "edit"
 
@@ -148,7 +148,7 @@ class MultiCellEditor:
         self.column.controls.append(
             ft.ElevatedButton(
                 "Добавить ячейку",
-                icon=ft.Icons.ADD_OUTLINED,
+                icon=ft.icons.ADD_OUTLINED,
                 on_click=self._add_cell,
             )
         )
@@ -186,15 +186,15 @@ class MultiCellEditor:
                 text_field
             ]),
             padding=10,
-            border=ft.border.all(1, ft.colors.outline),
+            border=ft.border.all(1, ft.colors.GREY_400),
             border_radius=5,
             margin=ft.margin.only(bottom=10),
         )
 
         # Кнопка удаления ячейки
         delete_button = ft.IconButton(
-            icon=ft.Icons.DELETE_OUTLINE,
-            icon_color=ft.colors.error,
+            icon=ft.icons.DELETE_OUTLINE,
+            icon_color=ft.colors.RED,
             tooltip="Удалить ячейку",
         )
 
@@ -277,7 +277,7 @@ class MultiCellEditor:
             self.column.controls.append(
                 ft.ElevatedButton(
                     "Добавить ячейку",
-                    icon=ft.Icons.ADD_OUTLINED,
+                    icon=ft.icons.ADD_OUTLINED,
                     on_click=self._add_cell,
                 )
             )
