@@ -121,17 +121,22 @@ class EditSnippetDialog:
         self.close()
         self.on_full_edit(current_snippet)
 
+    # dialogs.py — замените метод open в EditSnippetDialog
     def open(self, snippet_id: int, title: str, language: str, cells: list, tags: str = ""):
         self.snippet_id = snippet_id
         self.title_field.value = title
         self.lang_field.value = language
         self.tags_field.value = tags
-        # Устанавливаем диалог ДО загрузки данных
+
+        # Сначала загружаем данные в редактор
+        self.cells_editor.load_cells(cells)
+
+        # Затем устанавливаем диалог и обновляем
         self.page.dialog = self.dialog
         self.dialog.open = True
         self.page.update()
-        # Теперь загружаем данные (после обновления)
-        self.cells_editor.load_cells(cells)
+        print(f"DEBUG: EditSnippetDialog открыт для сниппета ID={snippet_id}, ячеек={len(cells)}")
+
 
     def close(self):
         self.dialog.open = False

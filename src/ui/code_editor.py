@@ -131,9 +131,11 @@ class MultiCellEditor(ft.UserControl):
                 self.cells.append(cell_container)
                 self.cells_column.controls.append(cell_container)
 
+    # code_editor.py — улучшите load_cells
     def load_cells(self, cells: List[Dict]):
-        """Загружает ячейки с автоматическим обновлением"""
+        """Загружает ячейки. Если UI уже построен — обновляет немедленно."""
         self._pending_cells = cells
-        # Если UI уже построен, обновляем немедленно
-        if self.page and self.page.controls:
-            self.update()
+        # Всегда вызываем update — Flet корректно обработает,
+        # даже если элемент ещё не добавлен на страницу.
+        self.update()
+        print(f"DEBUG: MultiCellEditor.load_cells вызван, ячеек={len(cells)}")
