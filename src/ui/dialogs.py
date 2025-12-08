@@ -1,147 +1,139 @@
 import flet as ft
-from typing import Callable
-from src.ui.code_editor import MultiCellEditor  # Предполагаю, что code_editor.py с MultiCellEditor существует
+from src.ui.code_editor import MultiCellEditor
 
 class AddSnippetDialog:
-    def __init__(self, on_submit: Callable[[str, str, list, str], None], on_cancel: Callable[[], None]):
-        print("DEBUG: Инициализация AddSnippetDialog")
+    def __init__(self, on_submit, on_cancel, page: ft.Page):
+        self.page = page
         self.on_submit = on_submit
         self.on_cancel = on_cancel
 
-        self.title_field = ft.TextField(label="Название", width=400, autofocus=True)
-        self.lang_field = ft.Dropdown(
-            label="Язык",
-            width=400,
-            options=[
-                ft.dropdown.Option("python"),
-                ft.dropdown.Option("javascript"),
-                ft.dropdown.Option("sql"),
-                ft.dropdown.Option("html"),
-                ft.dropdown.Option("css"),
-                ft.dropdown.Option("c++"),
-                ft.dropdown.Option("java"),
-                ft.dropdown.Option("go"),
-                ft.dropdown.Option("rust"),
-                ft.dropdown.Option("bash"),
-                ft.dropdown.Option("markdown"),
-                ft.dropdown.Option("json"),
-                ft.dropdown.Option("yaml"),
-                ft.dropdown.Option("xml"),
-            ],
-            value="python"
+        self.title = ft.TextField(label="Название", width=500, autofocus=True)
+        self.lang = ft.Dropdown(
+            label="Язык", value="python", width=500,
+            options=[ft.dropdown.Option(x) for x in ["python", "javascript", "bash", "yaml", "json", "sql", "markdown"]]
         )
-        self.tags_field = ft.TextField(label="Теги (через запятую)", width=400)
-        self.cells = [{"type": "code", "content": ""}]  # Default with one empty code cell
-        self.cells_editor = MultiCellEditor()  # Create MultiCellEditor instance
+        self.tags = ft.TextField(label="Теги (через запятую)", width=500)
+        self.editor = MultiCellEditor(page)
 
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Новый сниппет"),
             content=ft.Column([
-                self.title_field,
-                self.lang_field,
-                self.tags_field,
-                ft.Divider(),
-                ft.Text("Ячейки кода:", weight=ft.FontWeight.BOLD),
-                ft.Container(content=self.cells_editor.build(), height=300, expand=True),
-            ], scroll=ft.ScrollMode.AUTO, width=600, height=600),
+                self.title, self.lang, self.tags, ft.Divider(), self.editor
+            ], width=600, height=500, scroll=ft.ScrollMode.AUTO),
             actions=[
-                ft.TextButton("Отмена", on_click=self._handle_cancel),
-                ft.ElevatedButton("Сохранить", on_click=self._handle_submit),
+                ft.TextButton("Отмена", on_click=self._cancel),
+                ft.ElevatedButton("Сохранить", on_click=self._save)
             ]
         )
 
-    def _handle_submit(self, e):
-        print("DEBUG: Обработка submit в диалоге добавления")
-        if not self.title_field.value:
-            snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название!"))
-            e.page.show_snack_bar(snack_bar)
+    def _save(self, e):
+        if not self.title.value.strip():
+            self.page.show_snack_bar(ft.SnackBar(ft.Text("Введите название!")))
             return
-        # Get updated cells from the editor
-        updated_cells = self.cells_editor.get_cells()
-        self.on_submit(self.title_field.value, self.lang_field.value or "python", updated_cells, self.tags_field.value)
+        self.on_submit(
+            self.title.value.strip(),
+            self.lang.value or "python",
+            self.editor.get_cells(),
+            self.tags.value or ""
+        )
+        self.close()
 
-    def _handle_cancel(self, e):
-        print("DEBUG: Обработка cancel в диалоге добавления")
+    def _cancel(self, e):
         self.on_cancel()
+        self.close()
+
+    def open(self):
+        self.page.dialog = self.dialog
+        self.dialog.open = True
+        self.page.update()
+
+    def close(self):
+        self.dialog.open = False
+        self.page.dialog = None
+        self.page.update()
+
+import flet as ft
+from src.ui.code_editor import MultiCellEditor
 
 class EditSnippetDialog:
-    def __init__(self, on_submit: Callable[[int, str, str, list, str], None], on_full_edit: Callable[[], None], on_cancel: Callable[[], None]):
-        print("DEBUG: Инициализация EditSnippetDialog")
+    def __init__(self, on_submit, on_full_edit, page: ft.Page):
+        self.page = page
         self.on_submit = on_submit
         self.on_full_edit = on_full_edit
-        self.on_cancel = on_cancel
         self.snippet_id = None
-        self.cells = []
-        self.cells_editor = MultiCellEditor()  # Мини-редактор для cells
-
-        self.title_field = ft.TextField(label="Название", width=400)
+        self.title_field = ft.TextField(label="Название", width=500)
         self.lang_field = ft.Dropdown(
-            label="Язык",
-            width=400,
-            options=[
-                ft.dropdown.Option("python"),
-                ft.dropdown.Option("javascript"),
-                ft.dropdown.Option("sql"),
-                ft.dropdown.Option("html"),
-                ft.dropdown.Option("css"),
-                ft.dropdown.Option("c++"),
-                ft.dropdown.Option("java"),
-                ft.dropdown.Option("go"),
-                ft.dropdown.Option("rust"),
-                ft.dropdown.Option("bash"),
-                ft.dropdown.Option("markdown"),
-                ft.dropdown.Option("json"),
-                ft.dropdown.Option("yaml"),
-                ft.dropdown.Option("xml"),
-            ],
-            value="python"
+            label="Язык", width=500, value="python",
+            options=[ft.dropdown.Option(x) for x in ["python", "javascript", "bash", "yaml", "json", "sql", "markdown"]]
         )
-        self.tags_field = ft.TextField(label="Теги", width=400)
+        self.tags_field = ft.TextField(label="Теги", width=500)
+        self.cells_editor = MultiCellEditor(page)
+
+        actions = [
+            ft.TextButton("Отмена", on_click=lambda e: self._cancel()),
+            ft.ElevatedButton("Сохранить", on_click=self._save),
+            ft.ElevatedButton(
+                "Большой редактор",
+                icon=ft.icons.EDIT,
+                on_click=lambda e: self._open_main_editor()
+            )
+        ]
 
         self.dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Быстрое редактирование"),
+            title=ft.Text("Редактировать сниппет"),
             content=ft.Column([
                 self.title_field,
                 self.lang_field,
                 self.tags_field,
                 ft.Divider(),
-                ft.Text("Ячейки кода:", weight=ft.FontWeight.BOLD),
-                ft.Container(content=self.cells_editor.build(), height=350, expand=True),
-            ], scroll=ft.ScrollMode.AUTO, width=600, height=650),
-            actions=[
-                ft.TextButton("Отмена", on_click=self._handle_cancel),
-                ft.ElevatedButton("Сохранить", on_click=self._handle_quick_save),
-                ft.ElevatedButton("Редактировать полностью", on_click=self._handle_full_edit),
-            ]
+                self.cells_editor  # Не вызываем .build()
+            ], width=600, height=500, scroll=ft.ScrollMode.AUTO),
+            actions=actions
         )
 
-    def open(self, page: ft.Page, snippet_id: int, title: str, language: str, cells: list, tags: str):
-        print(f"DEBUG: Открытие диалога редактирования с тегами '{tags}'")
+    def _save(self, e):
+        if not self.title_field.value.strip():
+            self.page.show_snack_bar(ft.SnackBar(ft.Text("Введите название!")))
+            return
+        self.on_submit(
+            self.snippet_id,
+            self.title_field.value.strip(),
+            self.lang_field.value or "python",
+            self.cells_editor.get_cells(),
+            self.tags_field.value or ""
+        )
+        self.close()
+
+    def _cancel(self):
+        self.close()
+
+    def _open_main_editor(self):
+        """Открывает большой редактор с текущими данными"""
+        current_snippet = {
+            "id": self.snippet_id,
+            "title": self.title_field.value.strip(),
+            "language": self.lang_field.value or "python",
+            "tags": self.tags_field.value or "",
+            "cells": self.cells_editor.get_cells()
+        }
+        self.close()
+        self.on_full_edit(current_snippet)
+
+    def open(self, snippet_id: int, title: str, language: str, cells: list, tags: str = ""):
         self.snippet_id = snippet_id
         self.title_field.value = title
         self.lang_field.value = language
         self.tags_field.value = tags
-        self.cells = cells
-        self.cells_editor.load_cells(cells)  # Загружаем cells в мини-редактор
-        page.dialog = self.dialog
+        # Устанавливаем диалог ДО загрузки данных
+        self.page.dialog = self.dialog
         self.dialog.open = True
-        page.update()
+        self.page.update()
+        # Теперь загружаем данные (после обновления)
+        self.cells_editor.load_cells(cells)
 
-    def _handle_quick_save(self, e):
-        print("DEBUG: Обработка quick save в диалоге редактирования")
-        if not self.title_field.value:
-            snack_bar = ft.SnackBar(ft.Text("Пожалуйста, введите название!"))
-            e.page.show_snack_bar(snack_bar)
-            return
-        new_cells = self.cells_editor.get_cells()  # Получаем обновлённые cells
-        self.on_submit(self.snippet_id, self.title_field.value, self.lang_field.value or "python", new_cells, self.tags_field.value)
-
-    def _handle_full_edit(self, e):
-        print("DEBUG: Обработка full edit в диалоге редактирования")
-        self.on_full_edit()
-
-    def _handle_cancel(self, e):
-        print("DEBUG: Обработка cancel в диалоге редактирования")
-        self.on_cancel()
+    def close(self):
+        self.dialog.open = False
+        self.page.dialog = None
+        self.page.update()

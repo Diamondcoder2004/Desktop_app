@@ -31,10 +31,7 @@ class MainView(ft.Column):
             run_spacing=20,
         )
 
-        # Build the UI
         self._build_ui()
-
-        # Load snippets
         self._load_snippets()
 
     def _build_ui(self):
@@ -61,7 +58,6 @@ class MainView(ft.Column):
     def _load_snippets(self, search_query: str = ""):
         """Load snippets from database."""
         self.snippets_grid.controls.clear()
-
         snippets = self.db.get_snippets(search_query)
         for snippet in snippets:
             card = SnippetCard(
@@ -74,46 +70,44 @@ class MainView(ft.Column):
                 on_edit=self._handle_edit
             )
             self.snippets_grid.controls.append(card)
-
         self.update()
 
     def _handle_search(self, e):
-        """Handle search field changes."""
         self._load_snippets(e.control.value)
 
     def _handle_add_snippet(self, e):
-        """Handle add snippet button click."""
+        """Open dialog to add a new snippet."""
 
         def on_submit(title: str, language: str, cells: list, tags: str):
             self.db.add_snippet(title, language, cells, tags)
-            dialog.close(self.page)
+            dialog.close()
             self._load_snippets()
 
         def on_cancel():
-            dialog.close(self.page)
+            dialog.close()
 
-        dialog = AddSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        dialog.open(self.page)
+        # Передаём page в диалог
+        dialog = AddSnippetDialog(
+            on_submit=on_submit,
+            on_cancel=on_cancel,
+            page=self.page
+        )
+        dialog.open()  # page уже внутри dialog
 
     def _handle_copy(self, code: str):
-        """Handle copy button click."""
         pyperclip.copy(code)
         self.page.snack_bar = ft.SnackBar(ft.Text("Код скопирован в буфер обмена!"))
         self.page.snack_bar.open = True
         self.page.update()
 
     def _handle_delete(self, snippet_id: int):
-        """Handle delete button click."""
-
         def on_confirm():
             self.db.delete_snippet(snippet_id)
-            dialog.open = False
             self.page.dialog = None
             self.page.update()
             self._load_snippets(self.search_field.value)
 
         def on_cancel():
-            dialog.open = False
             self.page.dialog = None
             self.page.update()
 
@@ -122,25 +116,28 @@ class MainView(ft.Column):
             title=ft.Text("Удалить сниппет?"),
             content=ft.Text("Вы уверены, что хотите удалить этот сниппет? Это действие нельзя отменить."),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda e: on_cancel()),
-                ft.TextButton("Удалить", on_click=lambda e: on_confirm(), style=ft.ButtonStyle(color="red")),
+                ft.TextButton("Отмена", on_click=lambda _: on_cancel()),
+                ft.TextButton("Удалить", on_click=lambda _: on_confirm(), style=ft.ButtonStyle(color=ft.colors.RED)),
             ],
         )
-
         self.page.dialog = dialog
         dialog.open = True
         self.page.update()
 
     def _handle_edit(self, snippet_id: int, title: str, language: str, cells: list):
-        """Handle edit button click."""
+        """Open dialog to edit an existing snippet."""
 
         def on_submit(s_id: int, new_title: str, new_language: str, new_cells: list, tags: str):
             self.db.update_snippet(s_id, new_title, new_language, new_cells, tags)
-            dialog.close(self.page)
+            dialog.close()
             self._load_snippets(self.search_field.value)
 
         def on_cancel():
-            dialog.close(self.page)
+            dialog.close()
 
-        dialog = EditSnippetDialog(on_submit=on_submit, on_cancel=on_cancel)
-        dialog.open(self.page, snippet_id, title, language, cells)
+        dialog = EditSnippetDialog(
+            on_submit=on_submit,
+            on_cancel=on_cancel,
+            page=self.page
+        )
+        dialog.open(snippet_id, title, language, cells)  # page уже внутри

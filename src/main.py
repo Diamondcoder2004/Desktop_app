@@ -5,7 +5,8 @@ from src.models.database import Database
 from src.ui.components import SnippetEditor
 from src.ui.dialogs import AddSnippetDialog, EditSnippetDialog
 from src.ui.snippet_card import SnippetCard
-
+from src.ui.main_editor_view import MainEditorView
+import os
 logging.basicConfig(level=logging.DEBUG, format="DEBUG: %(message)s")
 logger = logging.getLogger("snippethub")
 
@@ -15,12 +16,62 @@ def main(page: ft.Page):
     page.window.width = 1200
     page.window.height = 800
 
-    db = Database()
+    try:
+        db = Database()
+        print("DEBUG: БД успешно инициализирована")
+    except Exception as e:
+        print(f"DEBUG: Ошибка БД при старте: {e}. Пересоздание.")
+        os.remove(db.db_name) if 'db' in locals() else print("DEBUG: Файл БД не найден")
+        db = Database()
+
     mode = ft.Ref[str]()
     mode.current = "list"
     current_snippet_id = ft.Ref[int]()
+    # Для управления большим редактором
+    # Для управления большим редактором
+    is_in_main_editor = ft.Ref[bool]()
+    is_in_main_editor.current = False
+    main_editor_view = ft.Ref[MainEditorView]()
 
-    # Определяем все функции заранее
+    def switch_to_main_editor(snippet=None):
+        """Переключает в режим большого редактора"""
+        if is_in_main_editor.current:
+            return
+
+        # Создаем большой редактор
+        editor = MainEditorView(
+            db=db,
+            page=page,
+            on_back=lambda: switch_from_main_editor(),
+            initial_snippet=snippet
+        )
+        main_editor_view.current = editor
+
+        # Очищаем страницу и добавляем редактор
+        page.controls.clear()
+        page.add(editor)
+        is_in_main_editor.current = True
+        page.update()
+
+    def switch_from_main_editor():
+        """Возвращается из большого редактора в основной вид"""
+        if not is_in_main_editor.current:
+            return
+
+        # Возвращаем основной вид
+        page.controls.clear()
+        if mode.current == "list":
+            page.add(snippet_list)
+        else:
+            main_row.visible = True
+            page.add(main_row)
+
+        is_in_main_editor.current = False
+        main_editor_view.current = None
+        # Обновляем список сниппетов
+        refresh_list(snippets_grid, search_field)
+        page.update()
+
     def refresh_list(snippets_grid, search_field):
         print("DEBUG: Обновление списка сниппетов")
         load_snippets(snippets_grid, db, search_field.value or "")
@@ -59,17 +110,30 @@ def main(page: ft.Page):
         search_field.on_change = lambda e: on_search(e, snippets_grid)
         snippets_grid = ft.GridView(
             expand=True,
-            runs_count=3,  # 3 карточки в ряд для заполнения окна
+            runs_count=3,
             max_extent=300,
             child_aspect_ratio=1.0,
             spacing=10,
             run_spacing=10
         )
-        add_button = ft.ElevatedButton("Добавить сниппет", on_click=lambda e: open_add_dialog(page, db, lambda: refresh_list(snippets_grid, search_field)))
+
+        # Кнопки в хедере
+        header_buttons = ft.Row([
+            ft.ElevatedButton(
+                "Большой редактор",
+                icon=ft.icons.EDIT,
+                on_click=lambda _: switch_to_main_editor()
+            ),
+            ft.ElevatedButton(
+                "Добавить сниппет",
+                icon=ft.icons.ADD,
+                on_click=lambda e: open_add_dialog(page, db, lambda: refresh_list(snippets_grid, search_field))
+            )
+        ], spacing=10)
 
         container = ft.Container(
             content=ft.Column([
-                ft.Row([search_field, add_button]),
+                ft.Row([search_field, header_buttons]),
                 ft.Divider(),
                 snippets_grid
             ]),
@@ -79,21 +143,31 @@ def main(page: ft.Page):
         load_snippets(snippets_grid, db, "")
         return container, snippets_grid, search_field
 
+
     snippet_list, snippets_grid, search_field = build_snippet_list()
 
     editor_container = ft.Container(expand=True, padding=10)
 
     main_row = ft.Row([snippet_list, editor_container], expand=True, visible=False)
 
+
+
     def switch_mode(new_mode: str, snippet_id: int = None):
         print(f"DEBUG: Переключение режима на {new_mode}, snippet_id={snippet_id}")
+        # Если мы в большом редакторе - выходим из него
+        if is_in_main_editor.current:
+            switch_from_main_editor()
+
         mode.current = new_mode
         if new_mode == "edit" and snippet_id:
             current_snippet_id.current = snippet_id
             snippet = db.get_snippet_by_id(snippet_id)
             print(f"DEBUG: Загружен сниппет для редактирования: {snippet['title'] if snippet else 'Не найден'}")
             if snippet:
-                editor = SnippetEditor(snippet=snippet, on_save=lambda updated: on_save_full_editor(updated, db, lambda: refresh_list(snippets_grid, search_field)))
+                editor = SnippetEditor(snippet=snippet, on_save=lambda updated: on_save_full_editor(updated, db,
+                                                                                                    lambda: refresh_list(
+                                                                                                        snippets_grid,
+                                                                                                        search_field)))
                 editor_container.content = editor.build()
         page.controls.clear()
         if new_mode == "list":
@@ -152,48 +226,43 @@ def main(page: ft.Page):
         page.update()
 
     def open_add_dialog(page: ft.Page, db: Database, refresh_func):
-        print("DEBUG: Открытие диалога добавления")
-
-        def handle_submit(title: str, lang: str, cells: list, tags: str):
-            print(f"DEBUG: Отправка нового сниппета: {title}, tags={tags}")
+        def handle_submit(title, lang, cells, tags):
             db.add_snippet(title, lang, cells, tags)
             refresh_func()
-            page.dialog.open = False
+            page.snack_bar = ft.SnackBar(ft.Text("Сниппет добавлен!"))
+            page.snack_bar.open = True
             page.update()
 
-        def handle_cancel():
-            print("DEBUG: Отмена диалога добавления")
-            page.dialog.open = False
-            page.update()
+        dialog = AddSnippetDialog(handle_submit, lambda: None, page)
+        dialog.open()
 
-        dialog = AddSnippetDialog(on_submit=handle_submit, on_cancel=handle_cancel)
-        page.dialog = dialog.dialog
-        page.dialog.open = True
-        page.update()
-
-    def open_edit_dialog(page: ft.Page, db: Database, snippet_id: int, title: str, language: str, cells: list, tags: str, switch_mode_func):
-        print(f"DEBUG: Открытие диалога редактирования для {snippet_id}")
-
-        def handle_submit(updated_id: int, new_title: str, new_lang: str, new_cells: list, new_tags: str):
-            print(f"DEBUG: Быстрое сохранение: {new_title}, tags={new_tags}")
-            db.update_snippet(updated_id, new_title, new_lang, new_cells, new_tags)
+    def open_edit_dialog(page: ft.Page, db: Database, snippet_id: int, title: str, language: str, cells: list,
+                         tags: str, switch_mode_func):
+        def handle_save(snippet_id, new_title, new_lang, new_cells, new_tags):
+            db.update_snippet(snippet_id, new_title, new_lang, new_cells, new_tags)
             refresh_list(snippets_grid, search_field)
-            page.dialog.open = False
+            page.snack_bar = ft.SnackBar(ft.Text("Сниппет обновлён!"))
+            page.snack_bar.open = True
             page.update()
 
-        def handle_full_edit():
-            print("DEBUG: Переход к полному редактированию")
-            page.dialog.open = False
-            switch_mode_func("edit", snippet_id)
-            page.update()
+        # Обработчик для большого редактора
+        def handle_full_edit(snippet_data=None):
+            if snippet_data:
+                # Если есть данные из диалога - открываем их в большом редакторе
+                switch_to_main_editor(snippet_data)
+            else:
+                # Иначе открываем существующий сниппет
+                switch_to_main_editor({
+                    "id": snippet_id,
+                    "title": title,
+                    "language": language,
+                    "tags": tags,
+                    "cells": cells
+                })
 
-        def handle_cancel():
-            print("DEBUG: Отмена диалога редактирования")
-            page.dialog.open = False
-            page.update()
+        dialog = EditSnippetDialog(handle_save, handle_full_edit, page)
+        dialog.open(snippet_id, title, language, cells, tags)
 
-        dialog = EditSnippetDialog(on_submit=handle_submit, on_full_edit=handle_full_edit, on_cancel=handle_cancel)
-        dialog.open(page, snippet_id, title, language, cells, tags)
 
 if __name__ == "__main__":
     print("DEBUG: Запуск приложения")
