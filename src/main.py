@@ -7,6 +7,9 @@ from src.ui.dialogs import AddSnippetDialog, EditSnippetDialog
 from src.ui.snippet_card import SnippetCard
 from src.ui.main_editor_view import MainEditorView
 import os
+
+from src.ui.study_view import StudySnippetView
+
 logging.basicConfig(level=logging.DEBUG, format="DEBUG: %(message)s")
 logger = logging.getLogger("snippethub")
 
@@ -94,7 +97,8 @@ def main(page: ft.Page):
                     cells=snippet['cells'],
                     on_copy=lambda yaml_content: on_copy(yaml_content, page),
                     on_delete=lambda sid: confirm_delete_snippet(page, db, lambda: refresh_list(snippets_grid, search_field), sid),
-                    on_edit=lambda sid, t, l, c: open_edit_dialog(page, db, sid, t, l, c, snippet['tags'], switch_mode)
+                    on_edit=lambda sid, t, l, c: open_edit_dialog(page, db, sid, t, l, c, snippet['tags'], switch_mode),
+                    on_study=lambda sid, t, l, c, tags: open_study_view(page, db, sid)
                 )
                 container.controls.append(card)
             page.update()
@@ -105,30 +109,38 @@ def main(page: ft.Page):
             traceback.print_exc()
 
     def build_snippet_list():
-        print("DEBUG: Построение списка сниппетов")
         search_field = ft.TextField(label="Поиск", expand=True)
         search_field.on_change = lambda e: on_search(e, snippets_grid)
+
+        # Изначально 3 колонки → max_extent=400
         snippets_grid = ft.GridView(
             expand=True,
-            runs_count=3,
-            max_extent=300,
+            max_extent=400,  # ← главное свойство
             child_aspect_ratio=1.0,
             spacing=10,
             run_spacing=10
         )
 
-        # Кнопки в хедере
+        def change_grid_columns(cols: int):
+            extent_map = {1: 1200, 2: 600, 3: 400, 4: 300}
+            snippets_grid.max_extent = extent_map.get(cols, 400)
+            # Перезагрузить сниппеты, чтобы Flet пересчитал layout
+            refresh_list(snippets_grid, search_field)
+
+        grid_buttons = ft.Row([
+            ft.IconButton(ft.icons.VIEW_LIST, tooltip="1 колонка", on_click=lambda _: change_grid_columns(1)),
+            ft.IconButton(ft.icons.GRID_3X3, tooltip="2 колонки", on_click=lambda _: change_grid_columns(2)),
+            ft.IconButton(ft.icons.GRID_4X4, tooltip="3 колонки", on_click=lambda _: change_grid_columns(3)),
+            ft.IconButton(ft.icons.GRID_GOLDENRATIO, tooltip="4 колонки", on_click=lambda _: change_grid_columns(4)),
+        ], spacing=5)
+
         header_buttons = ft.Row([
-            ft.ElevatedButton(
-                "Большой редактор",
-                icon=ft.icons.EDIT,
-                on_click=lambda _: switch_to_main_editor()
-            ),
-            ft.ElevatedButton(
-                "Добавить сниппет",
-                icon=ft.icons.ADD,
-                on_click=lambda e: open_add_dialog(page, db, lambda: refresh_list(snippets_grid, search_field))
-            )
+            ft.ElevatedButton("Большой редактор", icon=ft.icons.EDIT, on_click=lambda _: switch_to_main_editor()),
+            ft.ElevatedButton("Добавить сниппет", icon=ft.icons.ADD, on_click=lambda e: open_add_dialog(page, db,
+                                                                                                        lambda: refresh_list(
+                                                                                                            snippets_grid,
+                                                                                                            search_field))),
+            grid_buttons
         ], spacing=10)
 
         container = ft.Container(
@@ -150,6 +162,23 @@ def main(page: ft.Page):
 
     main_row = ft.Row([snippet_list, editor_container], expand=True, visible=False)
 
+    def open_study_view(page: ft.Page, db: Database, snippet_id: int):
+        snippet = db.get_snippet_by_id(snippet_id)
+        if not snippet:
+            return
+
+        def on_back():
+            switch_mode("list")
+
+        # Оборачиваем в Container с expand=True — это КЛЮЧ
+        study_container = ft.Container(
+            content=StudySnippetView(snippet=snippet, on_back=on_back),
+            expand=True
+        )
+
+        page.controls.clear()
+        page.add(study_container)  # ← добавляем обёртку
+        page.update()
 
 
     def switch_mode(new_mode: str, snippet_id: int = None):

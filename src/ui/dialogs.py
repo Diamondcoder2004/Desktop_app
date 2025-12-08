@@ -1,5 +1,7 @@
 import flet as ft
 from src.ui.code_editor import MultiCellEditor
+from src.utils.constants import SUPPORTED_LANGUAGES
+
 
 class AddSnippetDialog:
     def __init__(self, on_submit, on_cancel, page: ft.Page):
@@ -10,7 +12,7 @@ class AddSnippetDialog:
         self.title = ft.TextField(label="Название", width=500, autofocus=True)
         self.lang = ft.Dropdown(
             label="Язык", value="python", width=500,
-            options=[ft.dropdown.Option(x) for x in ["python", "javascript", "bash", "yaml", "json", "sql", "markdown"]]
+            options=[ft.dropdown.Option(lang) for lang in SUPPORTED_LANGUAGES ]
         )
         self.tags = ft.TextField(label="Теги (через запятую)", width=500)
         self.editor = MultiCellEditor(page)
@@ -62,12 +64,43 @@ class EditSnippetDialog:
         self.on_submit = on_submit
         self.on_full_edit = on_full_edit
         self.snippet_id = None
-        self.title_field = ft.TextField(label="Название", width=500)
-        self.lang_field = ft.Dropdown(
-            label="Язык", width=500, value="python",
-            options=[ft.dropdown.Option(x) for x in ["python", "javascript", "bash", "yaml", "json", "sql", "markdown"]]
+
+        # Поля без встроенных label
+        self.title_field = ft.TextField(
+            value="",  # будет установлено в open()
+            width=480,
+            height=50
         )
-        self.tags_field = ft.TextField(label="Теги", width=500)
+        self.lang_field = ft.Dropdown(
+            value="python",
+            width=180,
+            height=50,
+            options=[ft.dropdown.Option(lang) for lang in SUPPORTED_LANGUAGES]
+        )
+        self.tags_field = ft.TextField(
+            value="",  # будет установлено в open()
+            width=280,
+            height=50
+        )
+
+        # Собираем поля с кастомными подписями сверху
+        header_section = ft.Column([
+            ft.Row([
+                ft.Column([
+                    ft.Text("Название", size=12, weight=ft.FontWeight.BOLD, color=ft.colors.GREY_700),
+                    self.title_field
+                ], spacing=5),
+                ft.Column([
+                    ft.Text("Язык", size=12, weight=ft.FontWeight.BOLD, color=ft.colors.GREY_700),
+                    self.lang_field
+                ], spacing=5),
+                ft.Column([
+                    ft.Text("Теги", size=12, weight=ft.FontWeight.BOLD, color=ft.colors.GREY_700),
+                    self.tags_field
+                ], spacing=5),
+            ], spacing=20, wrap=True)
+        ], spacing=10)
+
         self.cells_editor = MultiCellEditor(page)
 
         actions = [
@@ -84,13 +117,12 @@ class EditSnippetDialog:
             modal=True,
             title=ft.Text("Редактировать сниппет"),
             content=ft.Column([
-                self.title_field,
-                self.lang_field,
-                self.tags_field,
+                header_section,
                 ft.Divider(),
-                self.cells_editor  # Не вызываем .build()
-            ], width=600, height=500, scroll=ft.ScrollMode.AUTO),
-            actions=actions
+                self.cells_editor
+            ], width=620, height=550, scroll=ft.ScrollMode.AUTO, spacing=10),
+            actions=actions,
+            actions_alignment=ft.MainAxisAlignment.END
         )
 
     def _save(self, e):

@@ -5,6 +5,9 @@ from typing import List, Dict, Optional
 import yaml
 import traceback
 
+from src.utils.constants import SUPPORTED_LANGUAGES
+
+
 class Database:
     """Класс для работы с операциями базы данных SQLite."""
 
@@ -55,6 +58,9 @@ class Database:
         """Добавление нового сниппета с многоячеечным содержимым."""
         print(f"DEBUG: Вызов add_snippet - title: {title}, language: {language}, tags: {tags}")
         print(f"DEBUG: Количество ячеек для добавления: {len(cells)}")
+        if language not in SUPPORTED_LANGUAGES:
+            print(f"DEBUG: Неподдерживаемый язык '{language}', используется 'markdown' по умолчанию")
+            language = "markdown"  # или raise ValueError, но мягче — fallback
         for i, cell in enumerate(cells):
             print(f"DEBUG: Ячейка {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} символов")
 
@@ -172,6 +178,9 @@ class Database:
         print(f"DEBUG: Вызов update_snippet для ID: {snippet_id}")
         print(f"DEBUG: Обновление с title: {title}, language: {language}, tags: {tags}")
         print(f"DEBUG: Количество ячеек для обновления: {len(cells)}")
+        if language not in SUPPORTED_LANGUAGES:
+            print(f"DEBUG: Неподдерживаемый язык '{language}' при обновлении, используется 'markdown'")
+            language = "markdown"
         for i, cell in enumerate(cells):
             print(f"DEBUG: Ячейка {i}: {cell.get('type', 'unknown')} - {len(cell.get('content', ''))} символов")
 
@@ -196,3 +205,25 @@ class Database:
         print("DEBUG: Закрытие соединения с базой данных")
         if self.conn:
             self.conn.close()
+
+    def get_snippet_by_title(self, title: str) -> Optional[Dict]:
+        """Получение сниппета по точному совпадению названия."""
+        print(f"DEBUG: Поиск сниппета по названию: {title}")
+        self.cursor.execute(
+            "SELECT id, title, language, rich_content, tags FROM snippets WHERE title = ?",
+            (title,)
+        )
+        row = self.cursor.fetchone()
+        if row:
+            try:
+                cells = yaml.safe_load(row[3]) if row[3] else []
+            except yaml.YAMLError:
+                cells = [{"type": "code", "content": row[3]}]
+            return {
+                "id": row[0],
+                "title": row[1],
+                "language": row[2],
+                "cells": cells,
+                "tags": row[4]
+            }
+        return None

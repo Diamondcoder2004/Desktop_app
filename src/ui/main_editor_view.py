@@ -1,6 +1,7 @@
 import flet as ft
 from src.models.database import Database
 from src.ui.code_editor import MultiCellEditor
+from src.utils.constants import SUPPORTED_LANGUAGES
 
 
 class MainEditorView(ft.UserControl):
@@ -112,12 +113,12 @@ class MainEditorView(ft.UserControl):
         self.current_snippet = snippet
         print(f"DEBUG: Открываем сниппет: {snippet.get('title')} (ID={snippet.get('id')})")
 
+
         self.title_field = ft.TextField(label="Название", value=snippet["title"], width=500)
+
         self.lang_field = ft.Dropdown(
             label="Язык", value=snippet["language"], width=200,
-            options=[ft.dropdown.Option(x) for x in [
-                "python", "javascript", "bash", "yaml", "json", "sql", "markdown"
-            ]]
+            options=[ft.dropdown.Option(lang) for lang in SUPPORTED_LANGUAGES]
         )
         self.tags_field = ft.TextField(label="Теги", value=snippet["tags"] or "", width=300)
 
@@ -125,19 +126,36 @@ class MainEditorView(ft.UserControl):
         self.cells_editor.load_cells(snippet["cells"])
 
         save_button = ft.ElevatedButton("Сохранить", icon=ft.icons.SAVE, on_click=self._save_snippet)
+        delete_button = ft.ElevatedButton(
+            "Удалить",
+            icon=ft.icons.DELETE,
+            color=ft.colors.RED,
+            on_click=self._delete_snippet
+        )
+        # Замените строку с ft.Row на следующее:
+        header_fields = ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Column([ft.Text("", size=12, color=ft.colors.GREY_700), self.title_field], spacing=5),
+                    ft.Column([ft.Text("", size=12, color=ft.colors.GREY_700), self.lang_field], spacing=5),
+                    ft.Column([ft.Text("", size=12, color=ft.colors.GREY_700), self.tags_field], spacing=5),
+                ],
+                spacing=20,
+                vertical_alignment=ft.CrossAxisAlignment.START
+            ),
+            padding=ft.padding.only(bottom=10)
+        )
 
         # === ВАЖНО: оберните всё в ListView для прокрутки ===
         scrollable_editor = ft.ListView(
             controls=[
-                ft.Row([self.title_field, self.lang_field, self.tags_field]),
+                header_fields,  # ← замените Row на header_fields
                 ft.Divider(),
-                # MultiCellEditor — это UserControl, его можно вставлять напрямую
                 self.cells_editor,
-                ft.Container(
-                    content=save_button,
-                    padding=20,
-                    alignment=ft.alignment.center
-                )
+                ft.Row([  # ← кнопки в одном ряду
+                    save_button,
+                    delete_button
+                ], spacing=10, alignment=ft.MainAxisAlignment.CENTER)
             ],
             expand=True,
             auto_scroll=False
@@ -173,4 +191,35 @@ class MainEditorView(ft.UserControl):
             new_id = self.db.add_snippet(title, language, cells, tags)
             self.current_snippet["id"] = new_id
             self.page.show_snack_bar(ft.SnackBar(ft.Text("✅ Сниппет создан!")))
-            self._load_snippets()  # Обновляем список слева
+            self._load_snippets()  # Обновляем список слева\
+
+    def _delete_snippet(self, e):
+        if not self.current_snippet or not self.current_snippet.get("id"):
+            return
+
+        def confirm_delete():
+            self.db.delete_snippet(self.current_snippet["id"])
+            self.page.snack_bar = ft.SnackBar(ft.Text("Сниппет удалён"), bgcolor=ft.colors.ERROR)
+            self.page.snack_bar.open = True
+            self.page.update()
+            # Обновить список слева
+            self._load_snippets()
+            # Очистить редактор
+            self.editor_container.content = ft.Column([
+                ft.Text("Выберите сниппет для редактирования", size=18, color=ft.colors.GREY_700, italic=True)
+            ], alignment=ft.MainAxisAlignment.CENTER)
+            self.editor_container.update()
+
+        # Показать подтверждение
+        confirm_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Подтвердите удаление"),
+            content=ft.Text(f"Удалить сниппет «{self.current_snippet['title']}»?"),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self.page.close_dialog()),
+                ft.ElevatedButton("Удалить", color=ft.colors.RED, on_click=lambda _: confirm_delete())
+            ]
+        )
+        self.page.dialog = confirm_dialog
+        confirm_dialog.open = True
+        self.page.update()

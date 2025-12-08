@@ -1,4 +1,10 @@
 # src/utils/export_import.py
+import json
+from datetime import datetime
+
+from src.models.database import Database
+
+
 def export_snippets(db: Database) -> str:
     """Экспортирует ВСЕ сниппеты в JSON"""
     snippets = db.get_all_snippets()
