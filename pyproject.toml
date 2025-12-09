@@ -8,6 +8,7 @@ authors = [
 requires-python = ">=3.8.1"
 dependencies = [
     "flet>=0.24.1,<0.25.0",  # Стабильная версия
+    "pyinstaller>=6.17.0",
     "pyperclip>=1.8.2",
     "pyyaml>=6.0",
 ]

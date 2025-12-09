@@ -14,7 +14,7 @@ def create_demo_data():
     demo_snippets.append({
         "title": "Python Data Science Basics",
         "language": "python",
-        "tags": "pandas,numpy,scikit-learn,data-science",
+        "tags": "pandas,numpy,scikit-learn,data-science,ml",
         "cells": [
             {
                 "type": "markdown",
@@ -43,7 +43,7 @@ def create_demo_data():
     demo_snippets.append({
         "title": "Python API Development",
         "language": "python",
-        "tags": "requests,fastapi,api,web",
+        "tags": "requests,fastapi,api,web,uvicorn",
         "cells": [
             {
                 "type": "markdown",
@@ -68,15 +68,15 @@ def create_demo_data():
         ]
     })
 
-    # Terminal / CMD
+    # Terminal / Shell (bash)
     demo_snippets.append({
         "title": "Полезные команды терминала",
         "language": "bash",
-        "tags": "terminal,cmd,linux,commands",
+        "tags": "bash,linux,terminal,shell,commands",
         "cells": [
             {
                 "type": "markdown",
-                "content": "## Полезные команды терминала\nLinux/MacOS/Windows"
+                "content": "## Полезные команды терминала\nLinux/macOS/Bash (также работают в WSL)"
             },
             {
                 "type": "code",
@@ -88,7 +88,7 @@ def create_demo_data():
             },
             {
                 "type": "code",
-                "content": "# Сетевые команды\nping google.com        # Проверить соединение\nnetstat -tuln         # Список сетевых соединений\nifconfig               # Информация о сетевых интерфейсах\nip addr                # Альтернатива ifconfig"
+                "content": "# Сетевые команды\nping google.com        # Проверить соединение\nnetstat -tuln         # Список сетевых соединений\nifconfig               # Информация о сетевых интерфейсах (устаревшее)\nip addr                # Современная альтернатива ifconfig"
             },
             {
                 "type": "code",
@@ -100,8 +100,8 @@ def create_demo_data():
     # Docker
     demo_snippets.append({
         "title": "Docker и Docker Compose",
-        "language": "docker",
-        "tags": "docker,containers,devops",
+        "language": "dockerfile",
+        "tags": "docker,dockerfile,docker-compose,containers,devops",
         "cells": [
             {
                 "type": "markdown",
@@ -130,7 +130,7 @@ def create_demo_data():
     demo_snippets.append({
         "title": "Frontend: HTML + JavaScript",
         "language": "html",
-        "tags": "html,javascript,frontend,web",
+        "tags": "html,javascript,dom,fetch-api,frontend",
         "cells": [
             {
                 "type": "markdown",
@@ -155,7 +155,7 @@ def create_demo_data():
     demo_snippets.append({
         "title": "Java Базовый синтаксис",
         "language": "java",
-        "tags": "java,oop,classes,methods",
+        "tags": "java,oop,classes,inheritance,access-modifiers",
         "cells": [
             {
                 "type": "markdown",
@@ -180,11 +180,11 @@ def create_demo_data():
     demo_snippets.append({
         "title": "C++ Структуры данных",
         "language": "cpp",
-        "tags": "cpp,algorithms,data-structures",
+        "tags": "cpp,stl,stack,queue,binary-search-tree,algorithms",
         "cells": [
             {
                 "type": "markdown",
-                "content": "## C++: Структуры данных\nСтеки, очереди, деревья"
+                "content": "## C++: Структуры данных\nСтеки, очереди, деревья (с использованием STL)"
             },
             {
                 "type": "code",
@@ -209,19 +209,19 @@ def create_demo_data():
     demo_snippets.append({
         "title": "SQL CRUD операции",
         "language": "sql",
-        "tags": "sql,database,crud",
+        "tags": "sql,sqlite,crud,database,ddl,dml",
         "cells": [
             {
                 "type": "markdown",
-                "content": "## SQL: Основные CRUD операции\nCreate, Read, Update, Delete"
+                "content": "## SQL: Основные CRUD операции\nCreate, Read, Update, Delete (на примере SQLite)"
             },
             {
                 "type": "code",
-                "content": "/* Создание таблицы */\nCREATE TABLE employees (\n    id INT PRIMARY KEY AUTO_INCREMENT,\n    first_name VARCHAR(50) NOT NULL,\n    last_name VARCHAR(50) NOT NULL,\n    email VARCHAR(100) UNIQUE,\n    department VARCHAR(50),\n    salary DECIMAL(10, 2),\n    hire_date DATE\n);"
+                "content": "/* Создание таблицы (DDL) */\nCREATE TABLE employees (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    first_name TEXT NOT NULL,\n    last_name TEXT NOT NULL,\n    email TEXT UNIQUE,\n    department TEXT,\n    salary REAL,\n    hire_date DATE\n);"
             },
             {
                 "type": "code",
-                "content": "/* CREATE - Вставка данных */\nINSERT INTO employees (first_name, last_name, email, department, salary, hire_date)\nVALUES \n    ('John', 'Doe', 'john.doe@company.com', 'Engineering', 75000.00, '2023-01-15'),\n    ('Jane', 'Smith', 'jane.smith@company.com', 'Marketing', 65000.00, '2023-02-20'),\n    ('Mike', 'Johnson', 'mike.johnson@company.com', 'Engineering', 80000.00, '2023-03-10');"
+                "content": "/* CREATE - Вставка данных (DML) */\nINSERT INTO employees (first_name, last_name, email, department, salary, hire_date)\nVALUES \n    ('John', 'Doe', 'john.doe@company.com', 'Engineering', 75000.00, '2023-01-15'),\n    ('Jane', 'Smith', 'jane.smith@company.com', 'Marketing', 65000.00, '2023-02-20'),\n    ('Mike', 'Johnson', 'mike.johnson@company.com', 'Engineering', 80000.00, '2023-03-10');"
             },
             {
                 "type": "code",
@@ -229,17 +229,16 @@ def create_demo_data():
             },
             {
                 "type": "code",
-                "content": "/* UPDATE - Обновление данных */\n-- Повышение зарплаты сотрудника\nUPDATE employees \nSET salary = salary * 1.10 \nWHERE id = 1;\n\n-- Смена отдела\nUPDATE employees \nSET department = 'Data Science' \nWHERE email = 'john.doe@company.com';\n\n/* DELETE - Удаление данных */\n-- Удаление по условию\nDELETE FROM employees WHERE salary < 60000;\n\n-- Удаление конкретного сотрудника\nDELETE FROM employees WHERE id = 3;"
+                "content": "/* UPDATE и DELETE */\n-- Повышение зарплаты\nUPDATE employees \nSET salary = salary * 1.10 \nWHERE id = 1;\n\n-- Смена отдела\nUPDATE employees \nSET department = 'Data Science' \nWHERE email = 'john.doe@company.com';\n\n-- Удаление сотрудника\nDELETE FROM employees WHERE id = 3;"
             }
         ]
     })
 
     return demo_snippets
 
-
 def test_database():
     try:
-        db = Database()
+        db = Database(db_name = "../dist/main/src/snippets.db")
         print("DEBUG: БД инициализирована")
     except Exception as e:
         print(f"DEBUG: Ошибка инициализации БД: {e}")

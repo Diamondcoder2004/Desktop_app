@@ -1,5 +1,4 @@
 import flet as ft
-from flet import icons  # Импорт icons для исправления NameError
 from typing import List, Dict, Any, Callable
 
 class CellEditor(ft.UserControl):
@@ -83,7 +82,7 @@ class CellEditor(ft.UserControl):
             )
             self.language_dropdown = None
 
-        delete_btn = ft.IconButton(icons.DELETE, tooltip="Удалить ячейку", on_click=lambda e: self.on_delete(self))
+        delete_btn = ft.IconButton(ft.icons.DELETE, tooltip="Удалить ячейку", on_click=lambda e: self.on_delete(self))
 
         self.preview = self._build_preview()
 
@@ -165,7 +164,7 @@ class SnippetEditor:
         )
         self.tags_field = ft.TextField(value=self.snippet['tags'], label="Теги (через запятую)", width=400)
 
-        add_cell_btn = ft.ElevatedButton("Добавить ячейку", icon=icons.ADD, on_click=self._add_cell)
+        add_cell_btn = ft.ElevatedButton("Добавить ячейку", icon=ft.icons.ADD, on_click=self._add_cell)
 
         save_btn = ft.ElevatedButton("Сохранить", on_click=self._on_save_click)
         cancel_btn = ft.TextButton("Назад", on_click=self._on_cancel_click)

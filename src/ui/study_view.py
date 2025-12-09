@@ -1,7 +1,7 @@
 # src/ui/study_view.py
 import flet as ft
-from src.utils.ai_helper import query_ollama
 import threading
+from src.utils.ai_helper import query_ollama
 
 
 class StudySnippetView(ft.UserControl):
@@ -9,54 +9,12 @@ class StudySnippetView(ft.UserControl):
         super().__init__()
         self.snippet = snippet
         self.on_back = on_back
-        self.explanation_containers = {}  # idx → ft.Markdown или ft.Text
-
-    def _explain_cell(self, e, cell_index: int, cell_content: str):
-        """Объяснение кода с простым обновлением (без run_thread_safe)"""
-        container = self.explanation_containers[cell_index]
-
-        # Если уже отображается — скрываем
-        if hasattr(container, '_visible') and container._visible:
-            container.content = None
-            container._visible = False
-            container.update()
-            return
-
-        # Показываем загрузку
-        container.content = ft.Row([
-            ft.ProgressRing(width=16, height=16),
-            ft.Text("Анализирую...", size=12, italic=True)
-        ])
-        container._visible = True
-        container.update()
-
-        # Запрос в фоне
-        def worker():
-            try:
-                prompt = f"""Кратко объясни на русском, что делает этот код на языке {self.snippet['language']}:
-
-{cell_content}
-"""
-                response = query_ollama(prompt, model="qwen2.5-coder:1.5b")
-            except Exception as ex:
-                response = f"⚠️ Ошибка: {str(ex)}"
-
-            # Обновляем UI — через page.update() извне
-            container.content = ft.Column([
-                ft.Markdown(
-                    response,
-                    extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                    selectable=True,
-                    code_theme="atom-one-dark"
-                ),
-                ft.TextButton("Скрыть", on_click=lambda _: self._explain_cell(None, cell_index, cell_content))
-            ])
-            container.update()
-
-        threading.Thread(target=worker, daemon=True).start()
+        self.explanation_markdowns = {}      # Markdown-контролы объяснений
+        self.toggle_buttons = {}             # Кнопки "Показать"/"Скрыть"
+        self.sidebar_visible = False
+        self.full_explanation_md = None
 
     def build(self):
-        # Заголовок
         title = ft.Text(self.snippet["title"], size=24, weight=ft.FontWeight.BOLD)
         meta = ft.Text(
             f"Язык: {self.snippet['language']} | Теги: {self.snippet['tags'] or '—'}",
@@ -67,10 +25,13 @@ class StudySnippetView(ft.UserControl):
             ft.IconButton(ft.icons.ARROW_BACK, on_click=lambda _: self.on_back()),
             ft.Text("Изучение сниппета", size=20),
             ft.Container(expand=True),
-            ft.IconButton(ft.icons.SCHOOL, tooltip="Объяснить весь", disabled=True)  # Временно отключено
+            ft.IconButton(
+                ft.icons.SCHOOL,
+                tooltip="Объяснить весь сниппет",
+                on_click=self._handle_full_explain
+            )
         ])
 
-        # Основные элементы
         items = [
             header,
             ft.Divider(),
@@ -79,7 +40,6 @@ class StudySnippetView(ft.UserControl):
             ft.Divider()
         ]
 
-        # Ячейки
         for idx, cell in enumerate(self.snippet["cells"]):
             cell_type = cell.get("type", "code")
             content = cell.get("content", "")
@@ -102,22 +62,42 @@ class StudySnippetView(ft.UserControl):
                     selectable=True
                 )
 
+                # Кнопка объяснения
                 explain_btn = ft.ElevatedButton(
-                    "🧠 Объяснить код",
+                    "Объяснить код",
                     on_click=lambda e, i=idx, c=content: self._explain_cell(e, i, c),
                     height=32
                 )
 
-                # Контейнер для ответа ИИ (изначально пустой)
-                explanation_box = ft.Container(padding=10)
-                explanation_box._visible = False
-                self.explanation_containers[idx] = explanation_box
+                # Markdown для объяснения (изначально скрыт)
+                explanation_md = ft.Markdown(
+                    "",
+                    extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+                    selectable=True,
+                    code_theme="atom-one-dark",
+                    visible=False
+                )
+                self.explanation_markdowns[idx] = explanation_md
 
-                # Группируем элементы БЕЗ внешнего Container — только Row/Column
+                # Кнопка переключения (изначально скрыта)
+                toggle_btn = ft.TextButton(
+                    "Показать",
+                    on_click=lambda e, i=idx: self._toggle_explanation(i),
+                    visible=False
+                )
+                self.toggle_buttons[idx] = toggle_btn
+
+                # Контейнер с кодом и кнопками
+                button_row = ft.Row([
+                    explain_btn,
+                    ft.Container(expand=True),  # Отступ
+                    toggle_btn
+                ], expand=True)
+
                 cell_group = ft.Column([
                     md_code,
-                    ft.Container(explain_btn, padding=ft.padding.only(top=6)),
-                    explanation_box
+                    ft.Container(button_row, padding=ft.padding.only(top=6)),
+                    explanation_md
                 ], spacing=4)
 
                 items.append(ft.Container(
@@ -128,18 +108,102 @@ class StudySnippetView(ft.UserControl):
                     margin=ft.margin.only(bottom=15)
                 ))
 
-        # Возвращаем Column с прокруткой
-        return ft.Column(
+        main_content = ft.Column(
             controls=items,
             scroll=ft.ScrollMode.AUTO,
             spacing=8,
+            expand=True
         )
 
-    def _handle_full_explain(self, e):
-        # Показываем индикатор загрузки в виде Snackbar
-        self.page.show_snack_bar(ft.SnackBar(ft.Text("Готовлю объяснение всего сниппета..."), open=True))
+        # Полное объяснение — ВНУТРИ прокручиваемого контейнера
+        self.full_explanation_md = ft.Markdown(
+            "Нажмите кнопку \"Объяснить весь\", чтобы получить объяснение всего сниппета",
+            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+            selectable=True,
+            code_theme="atom-one-dark"
+        )
 
-        # Формируем полный текст
+        # Оборачиваем Markdown в Column с прокруткой
+        explanation_scroll = ft.Column(
+            [self.full_explanation_md],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
+
+        self.sidebar_content = ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Text("Объяснение сниппета", size=18, weight=ft.FontWeight.BOLD),
+                    ft.IconButton(ft.icons.CLOSE, on_click=self._toggle_sidebar, tooltip="Скрыть"),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Divider(),
+                explanation_scroll
+            ], expand=True),
+            width=400,
+            padding=10,
+            bgcolor=ft.colors.SURFACE_VARIANT,
+            border=ft.border.all(1, ft.colors.OUTLINE),
+            border_radius=8,
+            visible=False
+        )
+
+        return ft.Row([
+            ft.Container(
+                content=main_content,
+                expand=True,
+                padding=ft.padding.only(right=10)
+            ),
+            self.sidebar_content
+        ], expand=True)
+
+    def _toggle_explanation(self, idx: int):
+        md = self.explanation_markdowns[idx]
+        toggle_btn = self.toggle_buttons[idx]
+
+        md.visible = not md.visible
+        toggle_btn.text = "Скрыть" if md.visible else "Показать"
+        md.update()
+        toggle_btn.update()
+
+    def _explain_cell(self, e, cell_index: int, cell_content: str):
+        md = self.explanation_markdowns[cell_index]
+        toggle_btn = self.toggle_buttons[cell_index]
+
+        # Если уже загружено — просто переключаем видимость
+        if md.value and md.value != "":
+            self._toggle_explanation(cell_index)
+            return
+
+        # Показываем загрузку
+        md.value = "_Анализирую..._"
+        md.visible = True
+        toggle_btn.text = "Скрыть"
+        toggle_btn.visible = True
+        md.update()
+        toggle_btn.update()
+
+        def worker():
+            try:
+                prompt = f"""Кратко объясни на русском, что делает этот код на языке {self.snippet['language']}:
+
+{cell_content}
+"""
+                response = query_ollama(prompt, model="qwen2.5-coder:1.5b")
+            except Exception as ex:
+                response = f" Ошибка: {str(ex)}"
+
+            md.value = response
+            md.update()
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _handle_full_explain(self, e):
+        self.sidebar_visible = True
+        self.sidebar_content.visible = True
+        self.full_explanation_md.value = "_Анализирую весь сниппет..._"
+        self.full_explanation_md.update()
+        self.sidebar_content.update()
+
         full_text = ""
         for cell in self.snippet["cells"]:
             if cell["type"] in ("markdown", "text"):
@@ -149,40 +213,35 @@ class StudySnippetView(ft.UserControl):
 
         prompt = f"""Вы — эксперт-преподаватель по программированию. Объясните сниппет полностью:
 
-    Название: {self.snippet['title']}
-    Язык: {self.snippet['language']}
-    Теги: {self.snippet['tags']}
+Название: {self.snippet['title']}
+Язык: {self.snippet['language']}
+Теги: {self.snippet['tags']}
 
-    Содержимое:
-    {full_text}
+Содержимое сниппета:
+{full_text}
 
-    Объясните:
-    - Общую цель и назначение сниппета.
-    - Какие ключевые концепции, паттерны или технологии в нём используются.
-    - Что должен запомнить студент?
-    Ответ дайте на русском языке, структурированно, без «воды».
-    """
+Объясните подробно:
+1. Общую цель и назначение сниппета
+2. Ключевые концепции и технологии
+3. Как работает код пошагово
+4. Что должен запомнить студент?
+5. Практическое применение этого кода
+
+Отвечайте на русском языке, структурированно и понятно.
+"""
 
         def worker():
             try:
                 response = query_ollama(prompt, model="qwen2.5-coder:1.5b")
             except Exception as ex:
-                response = f"⚠️ Ошибка при запросе к ИИ:\n{str(ex)}"
+                response = f"#Ошибка при запросе\n\n```\n{str(ex)}\n```"
 
-            # Показываем результат в Snackbar (или можно добавить внизу — по желанию)
-            def update_ui():
-                self.page.show_snack_bar(
-                    ft.SnackBar(
-                        content=ft.Column([
-                            ft.Text("🧠 Ответ ИИ:", weight=ft.FontWeight.BOLD),
-                            ft.Text(response, selectable=True)
-                        ], tight=True, spacing=5),
-                        duration=10000,  # 10 секунд
-                        open=True,
-                        bgcolor=ft.colors.SURFACE_VARIANT
-                    )
-                )
-
-            self.page.run_thread_safe(update_ui)
+            self.full_explanation_md.value = response
+            self.full_explanation_md.update()
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _toggle_sidebar(self, e=None):
+        self.sidebar_visible = not self.sidebar_visible
+        self.sidebar_content.visible = self.sidebar_visible
+        self.sidebar_content.update()

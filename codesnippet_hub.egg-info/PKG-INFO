@@ -5,6 +5,7 @@ Summary: A personal code snippet manager with syntax highlighting
 Author-email: Almaz <almaz_sabitov04@mail.ru>
 Requires-Python: >=3.8.1
 Requires-Dist: flet<0.25.0,>=0.24.1
+Requires-Dist: pyinstaller>=6.17.0
 Requires-Dist: pyperclip>=1.8.2
 Requires-Dist: pyyaml>=6.0
 Provides-Extra: dev
